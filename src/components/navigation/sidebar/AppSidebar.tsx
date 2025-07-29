@@ -30,7 +30,7 @@ const itemsApp = [
     },
     {
         title: "Manage Data",
-        url: "#",
+        url: "http://localhost:3000/data",
         icon: Database,
     },
     {
