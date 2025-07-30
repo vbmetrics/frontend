@@ -12,3 +12,12 @@ export type Season = {
     start_date: string;
     end_date: string;
 };
+
+export type Arena = {
+    id: string;
+    name: string;
+    country_code: string;
+    city: string | null;
+    address: string | null;
+    capacity: number | null;
+};

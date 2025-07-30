@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import CountryList from '@/components/api/CountryList';
-import AddCountryForm from '@/components/api/AddCountryForm';
+import AddCountryForm from '@/components/forms/AddCountryForm';
 import { Country } from '@/lib/types';
 
 export default function CountriesPage() {

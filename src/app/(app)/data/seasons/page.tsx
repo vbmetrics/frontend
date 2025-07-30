@@ -1,63 +1,77 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-/* import CountryList from '@/components/api/CountryList';
-import AddCountryForm from '@/components/api/AddCountryForm';
-import { Country } from '@/lib/types'; */
+import { Season } from '@/lib/types';
+import SeasonList from '@/components/api/SeasonList';
+import SeasonForm from '@/components/forms/SeasonForm';
 
 export default function SeasonsPage() {
-    /* 
-    const [countries, setCountries] = useState<Country[]>([]);
+    const [seasons, setSeasons] = useState<Season[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
+    const [editingSeason, setEditingSeason] = useState<Season | null>(null);
 
-    const fetchCountries = async () => {
+    const fetchSeasons = async () => {
         setLoading(true);
         try {
-        const response = await fetch('http://127.0.0.1:8000/api/v1/countries');
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-        const data: Country[] = await response.json();
-        setCountries(data);
+            const response = await fetch('http://127.0.0.1:8000/api/v1/seasons');
+            if (!response.ok) {
+                throw new Error('Error fetching seasons');
+            }
+            const data: Season[] = await response.json();
+            setSeasons(data);
         } catch (error: any) {
-        setError(error.message);
+            setError(error.message);
         } finally {
-        setLoading(false);
+            setLoading(false);
         }
     };
 
-    // Pobierz dane przy pierwszym załadowaniu komponentu
     useEffect(() => {
-        fetchCountries();
+        fetchSeasons();
     }, []);
 
-    // Funkcja, która zostanie wywołana po pomyślnym dodaniu kraju
-    const handleCountryAdded = () => {
-        // Po prostu uruchamiamy pobieranie danych ponownie, aby zaktualizować listę
-        fetchCountries();
+    const handleSave = () => {
+        setEditingSeason(null);
+        fetchSeasons();
     };
 
-    return (
-        <div>
-            <h1 className="ml-12 mb-6 text-3xl font-bold">Countries Data</h1>
-            <div className="ml-12 mb-6 grid grid-cols-1 md:grid-cols-2 gap-8">
-                <section>
-                    <AddCountryForm onCountryAdded={handleCountryAdded} />
-                </section>
-                <section>
-                    <CountryList countries={countries} loading={loading} error={error} />
-                </section>
-            </div>
-        </div>
-    ); 
-    */
+    const handleDelete = async (seasonId: string) => {
+        if (!confirm('Are you sure you want to delete season?')) return;
+
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/v1/seasons/${seasonId}`, {
+                method: 'DELETE',
+            });
+            if (!response.ok) {
+                throw new Error('Cannot delete season.');
+            }
+            fetchSeasons();
+        } catch (error: any) {
+            setError(error.message);
+        }
+    };
     
     return (
-        <div className="ml-12">
-            Seasons
+        <main className="p-8">
+        <h1 className="text-3xl font-bold mb-8">Manage Seasons</h1>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <section>
+            {/* Formularz do dodawania i edycji */}
+            <SeasonForm onSave={handleSave} editingSeason={editingSeason} />
+            </section>
+            <section>
+            {/* Lista sezonów z przyciskami do edycji/usuwania */}
+            <SeasonList
+                seasons={seasons}
+                loading={loading}
+                error={error}
+                onEdit={setEditingSeason} // Przekazujemy funkcję do ustawiania edytowanego sezonu
+                onDelete={handleDelete}
+            />
+            </section>
         </div>
+        </main>
     );
 }
-
-    
