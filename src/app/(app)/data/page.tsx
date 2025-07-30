@@ -9,6 +9,14 @@ export default function ManageDataPage() {
             <br />
             <a href="/data/arenas" className="ml-12">Arenas</a>
             <br />
+            <a href="/data/staff-members" className="ml-12">Staff Members</a>
+            <br />
+            <a href="/data/players" className="ml-12">Players</a>
+            <br />
+            <a href="/data/teams" className="ml-12">Teams</a>
+            <br />
+            <a href="/data/player-team-history" className="ml-12">Player Team History</a>
+            <br />
         </div>
     );
 }
