@@ -1,8 +1,10 @@
 export type SeasonType = "club" | "national";
 
 export type Country = {
-    code: string;
+    alpha_2_code: string;
     name: string;
+    latitude: number;
+    longitude: number;
 };
 
 export type Season = {

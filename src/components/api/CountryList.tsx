@@ -22,8 +22,8 @@ export default function CountryList({ countries, loading, error }: CountryListPr
     <ScrollArea className="h-96 w-84 rounded-md border">
         <ul>
             {countries.map(country => (
-            <li key={country.code}>
-                {country.name} - {country.code} 
+            <li key={country.alpha_2_code}>
+                {country.name} - {country.alpha_2_code} 
             </li>
             ))}
         </ul>

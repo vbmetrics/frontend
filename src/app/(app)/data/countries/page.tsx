@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react';
 import CountryList from '@/components/api/CountryList';
 import AddCountryForm from '@/components/forms/AddCountryForm';
 import { Country } from '@/lib/types';
+import { getCountries } from '@/lib/api/countries';
 
+// TODO: use SWR library
+// npm install swr
 export default function CountriesPage() {
     // Przenosimy stan i logikę pobierania tutaj
     const [countries, setCountries] = useState<Country[]>([]);
@@ -14,17 +17,14 @@ export default function CountriesPage() {
     // Funkcja do pobierania danych, której będziemy mogli używać wielokrotnie
     const fetchCountries = async () => {
         setLoading(true);
+        setError(null);
         try {
-        const response = await fetch('http://127.0.0.1:8000/api/v1/countries');
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-        const data: Country[] = await response.json();
-        setCountries(data);
+            const data = await getCountries();
+            setCountries(data);
         } catch (error: any) {
-        setError(error.message);
+            setError(error.message);
         } finally {
-        setLoading(false);
+            setLoading(false);
         }
     };
 
