@@ -5,6 +5,7 @@ import { FaGithub } from "react-icons/fa";
 
 import { Logo } from "@/components/graphics/Logo";
 import { Button } from "@/components/ui/button";
+import { SignInButton, SignUpButton } from "@/components/auth/AuthButtons";
 
 export function LandingHeader() {
     return (
@@ -18,17 +19,11 @@ export function LandingHeader() {
                 </Link>
 
                 <nav className="flex items-center gap-2 text-sm font-medium">
-                    {/* TODO: Sign in/up cards, for test only it links to */}
-                    <a
-                        href="http://localhost:3000/dashboard"
-                    >
-                    <Button variant="navbar" className="hidden text-indigo-950 sm:flex">
-                        Sign In
-                    </Button>
-                    </a>
-                    <Button variant="start" className="text-background">
-                        Sign Up
-                    </Button>
+                    <div className="hidden sm:flex">
+                        <SignInButton className="text-indigo-950" />
+                    </div>
+                    <SignUpButton variant="start" className="text-background" />
+
                     <a
                         href="https://github.com/vbmetrics"
                         target="_blank"
@@ -36,9 +31,10 @@ export function LandingHeader() {
                         className="hidden sm:inline-block"
                     >
                         <Button variant="navbar" size="icon" className="text-indigo-950">
-                            <FaGithub className="h-[1.4rem] w-[1.4rem]" />
+                        <FaGithub className="h-[1.4rem] w-[1.4rem]" />
                         </Button>
                     </a>
+
                     {/* TODO: dark/light mode */}
                     <Button variant="navbar" size="icon" className="text-indigo-950">
                         <Sun className="h-[1.4rem] w-[1.4rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
@@ -46,6 +42,7 @@ export function LandingHeader() {
                         <span className="sr-only">Toggle theme</span>
                     </Button>
                 </nav>
+
             </div>
         </header>
     );

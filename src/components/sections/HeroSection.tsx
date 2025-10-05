@@ -1,7 +1,7 @@
 import { TbPlayVolleyball } from "react-icons/tb";
 
 import { Net } from "@/components/graphics/Net";
-import { Button } from "@/components/ui/button";
+import { SignUpButton } from "@/components/auth/AuthButtons";
 
 export function HeroSection() {
     return (
@@ -23,14 +23,12 @@ export function HeroSection() {
                     Modern platform to gather, store and analyze volleyball statistics in real-time.
                 </p>
                 
-                <Button
+                <SignUpButton
                     variant="start"
-                    size="lg"
                     className="h-auto items-center justify-center gap-6 px-10 py-4"
                 >
-                    <span className="text-2xl font-bold sm:inline">START</span>
-                    <TbPlayVolleyball className="size-16 transition-all" />
-                </Button>
+                    {/* text/icon inside is controlled by button variant, keep design as is */}
+                </SignUpButton>
             </div>
         </section>
     );
