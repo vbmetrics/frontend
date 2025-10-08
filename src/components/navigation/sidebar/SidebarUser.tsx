@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import useSWR from "swr";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   BiCreditCardFront,
@@ -9,6 +10,7 @@ import {
   BiLogOut,
   BiNotification,
   BiUserCircle,
+  BiBuildings,
 } from "react-icons/bi";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -27,13 +29,9 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Switch } from "@/components/ui/switch"; // shadcn switch
 
-type Me = {
-  id: string;
-  email: string;
-  full_name: string;         // ← matches your backend
-  role?: string;
-};
+type Me = { id: string; email: string; full_name: string; role?: string };
 
 const fetcher = async (url: string) => {
   const r = await fetch(url, { cache: "no-store" });
@@ -42,7 +40,7 @@ const fetcher = async (url: string) => {
 };
 
 function initialsFrom(name?: string, email?: string) {
-  const display = name?.trim() || email || "";
+  const display = (name || email || "").trim();
   const parts = display.split(/\s+/).filter(Boolean);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
   if (display.includes("@")) return display[0]?.toUpperCase() || "U";
@@ -52,12 +50,23 @@ function initialsFrom(name?: string, email?: string) {
 export function SidebarUser() {
   const { isMobile } = useSidebar();
   const router = useRouter();
-  const { data: me, error, isLoading } = useSWR<Me>("/api/auth/me", fetcher, {
-    revalidateOnFocus: false,
-  });
+  const { data: me, isLoading } = useSWR<Me>("/api/auth/me", fetcher, { revalidateOnFocus: false });
 
   const displayName = me?.full_name ?? (isLoading ? "Loading…" : "—");
   const email = me?.email ?? (isLoading ? "…" : "—");
+
+  const [notifOn, setNotifOn] = React.useState<boolean>(true);
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem("prefs.notifications");
+      if (raw != null) setNotifOn(JSON.parse(raw));
+    } catch {}
+  }, []);
+  React.useEffect(() => {
+    try {
+      localStorage.setItem("prefs.notifications", JSON.stringify(notifOn));
+    } catch {}
+  }, [notifOn]);
 
   async function onLogout() {
     try {
@@ -76,8 +85,9 @@ export function SidebarUser() {
             <SidebarMenuButton
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              tooltip="Profile"
             >
-              <Avatar className="h-8 w-8 rounded-full">
+              <Avatar className="h-8 w-8 rounded-full" aria-label="Profile">
                 <AvatarImage src="" alt={displayName} />
                 <AvatarFallback className="rounded-lg">
                   {initialsFrom(me?.full_name, me?.email)}
@@ -115,17 +125,41 @@ export function SidebarUser() {
             <DropdownMenuSeparator />
 
             <DropdownMenuGroup>
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                <BiUserCircle />
-                Account
+              <DropdownMenuItem asChild>
+                <Link href="/account">
+                  <BiUserCircle />
+                  Account
+                </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                <BiCreditCardFront />
-                Billing
+
+              <DropdownMenuItem asChild>
+                <Link href="/account/organizations">
+                  <BiBuildings />
+                  Organizations
+                </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                <BiNotification />
-                Notifications
+
+              <DropdownMenuItem asChild>
+                <Link href="/account/billing">
+                  <BiCreditCardFront />
+                  Billing
+                </Link>
+              </DropdownMenuItem>
+
+              {/* Label links to page, switch toggles local UI preference */}
+              <DropdownMenuItem
+                onSelect={(e) => e.preventDefault()}
+                className="justify-between"
+              >
+                <Link href="/account/notifications" className="inline-flex items-center gap-2">
+                  <BiNotification />
+                  Notifications
+                </Link>
+                <Switch
+                  checked={notifOn}
+                  onCheckedChange={setNotifOn}
+                  onClick={(e) => e.stopPropagation()}
+                />
               </DropdownMenuItem>
             </DropdownMenuGroup>
 
