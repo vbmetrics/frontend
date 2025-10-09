@@ -9,7 +9,9 @@ import {
   CalendarClock,
   PlugZap,
   BookText,
-  History, // changed icon for Changelog
+  History,
+  Send,
+  SquareChevronRight,
 } from "lucide-react";
 
 import {
@@ -31,19 +33,20 @@ import { SidebarUser } from "@/components/navigation/sidebar/SidebarUser";
 
 const itemsApp = [
   { title: "Dashboard",   url: "/dashboard",    icon: Home },
+  { title: "Live",        url: "/live",         icon: SquareChevronRight },
   { title: "Matches",     url: "/matches",      icon: CalendarClock },
+  { title: "Analytics",   url: "/analytics",    icon: BarChart3 },
   { title: "Scouting",    url: "/scouting",     icon: ClipboardList },
   { title: "Players",     url: "/players",      icon: Users },
-  { title: "Analytics",   url: "/analytics",    icon: BarChart3 },
   { title: "Data",        url: "/data",         icon: Database },
   { title: "Integration", url: "/integrations", icon: PlugZap },
   { title: "Settings",    url: "/settings",     icon: Settings },
 ];
 
 const itemsHelp = [
-  { title: "Feedback",      url: "/help/feedback",  icon: BookText },
   { title: "Documentation", url: "/help/docs",      icon: BookText },
-  { title: "Changelog",     url: "/help/changelog", icon: History }, // changed here
+  { title: "Changelog",     url: "/help/changelog", icon: History },
+  { title: "Feedback",      url: "/help/feedback",  icon: Send },
 ];
 
 export function AppSidebar() {
@@ -57,8 +60,6 @@ export function AppSidebar() {
 
         {/* Application */}
         <SidebarGroup>
-          {/* Status dots ABOVE the label; hide in icon mode */}
-          <StatusDots className="group-data-[collapsible=icon]/sidebar:hidden" />
 
           <SidebarGroupLabel>Application</SidebarGroupLabel>
 
@@ -95,6 +96,11 @@ export function AppSidebar() {
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Status dots - hidden in icon-only mode */}
+        <SidebarGroup>
+          <StatusDots className="group-data-[collapsible=icon]/sidebar:hidden" />
         </SidebarGroup>
       </SidebarContent>
 

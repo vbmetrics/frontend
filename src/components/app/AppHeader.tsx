@@ -10,7 +10,7 @@ import { ThemeSwitch } from "@/components/app/ThemeSwitch";
 export function AppHeader() {
     return (
         <header className="sticky top-0 z-50 w-full header-surface">
-            <div className="flex h-14 items-center justify-between px-4 sm:px-6 md:px-8">
+            <div className="flex h-14 items-center justify-between px-2">
                 <Link href="/" className="flex items-center gap-2">
                     <Logo />
                     <span className="hidden font-bold text-shadow-indigo-950 sm:inline md:text-xl">

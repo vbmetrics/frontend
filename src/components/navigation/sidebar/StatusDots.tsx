@@ -38,7 +38,7 @@ export function StatusDots({ className = "" }: { className?: string }) {
 
   return (
     <TooltipProvider delayDuration={150}>
-      <div className={`px-3 pb-1 flex items-center gap-4 text-xs text-muted-foreground ${className}`}>
+      <div className={`px-2 pb-2 flex items-center gap-4 text-xs text-muted-foreground ${className}`}>
         <Tooltip>
           <TooltipTrigger asChild>
             <div className="inline-flex items-center gap-2">
