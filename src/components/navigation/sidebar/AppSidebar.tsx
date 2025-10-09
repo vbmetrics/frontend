@@ -44,9 +44,9 @@ const itemsApp = [
 ];
 
 const itemsHelp = [
-  { title: "Documentation", url: "/help/docs",      icon: BookText },
-  { title: "Changelog",     url: "/help/changelog", icon: History },
-  { title: "Feedback",      url: "/help/feedback",  icon: Send },
+  { title: "Documentation", url: "/docs",      icon: BookText },
+  { title: "Changelog",     url: "/changelog", icon: History },
+  { title: "Feedback",      url: "/feedback",  icon: Send },
 ];
 
 export function AppSidebar() {

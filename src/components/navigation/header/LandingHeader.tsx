@@ -3,7 +3,7 @@ import { FaGithub } from "react-icons/fa";
 import { Logo } from "@/components/graphics/Logo";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button.variants";
-import { ThemeSwitch } from "@/components/app/ThemeSwitch";
+import { ThemeSwitch } from "@/components/theme/ThemeSwitch";
 import { cn } from "@/lib/utils";
 
 export function LandingHeader() {

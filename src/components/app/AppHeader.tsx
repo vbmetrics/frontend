@@ -5,7 +5,7 @@ import { FaGithub } from "react-icons/fa";
 import { Logo } from "@/components/graphics/Logo";
 import { Button } from "@/components/ui/button";
 
-import { ThemeSwitch } from "@/components/app/ThemeSwitch";
+import { ThemeSwitch } from "@/components/theme/ThemeSwitch";
 
 export function AppHeader() {
     return (
