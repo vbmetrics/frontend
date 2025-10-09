@@ -3,42 +3,56 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronRight, Home } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Home } from "lucide-react";
+import {
+  Breadcrumb,
+  BreadcrumbEllipsis,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 type Crumb = { label: string; href?: string };
 
 function toTitle(label: string) {
-  return label
+  return decodeURIComponent(label)
     .split("-")
     .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
     .join(" ");
 }
 
 /**
- * If `items` is omitted we build crumbs from the current path.
- * We treat `/dashboard` as the app's "home".
+ * Shadcn breadcrumb with auto-build from path.
+ * - `items`: opcjonalnie nadpisuje auto-crumbs
+ * - `rootLabel`/`rootHref`: etykieta i URL dla korzenia (domyślnie Dashboard)
+ * - `maxCrumbs`: jeśli ścieżka dłuższa, zwinie środek do ellipsis
  */
 export function AppBreadcrumbs({
   items,
-  className,
+  rootLabel = "Dashboard",
+  rootHref = "/dashboard",
+  maxCrumbs = 5,
 }: {
   items?: Crumb[];
-  className?: string;
+  rootLabel?: string;
+  rootHref?: string;
+  maxCrumbs?: number;
 }) {
   const pathname = usePathname();
 
   const autoItems: Crumb[] = React.useMemo(() => {
     if (items && items.length) return items;
-    if (!pathname) return [{ label: "Dashboard", href: "/dashboard" }];
+    if (!pathname) return [{ label: rootLabel, href: rootHref }];
 
     const segments = pathname.split("/").filter(Boolean);
-    // Always start from Dashboard
-    const base: Crumb[] = [{ label: "Dashboard", href: "/dashboard" }];
 
-    if (segments[0] === "dashboard" && segments.length === 1) {
-      return base; // on dashboard
-    }
+    // Zawsze zaczynamy od korzenia (Dashboard)
+    const base: Crumb[] = [{ label: rootLabel, href: rootHref }];
+
+    // /dashboard -> tylko root
+    if (segments.length === 1 && `/${segments[0]}` === rootHref) return base;
 
     let acc = "";
     const rest = segments.map((seg, idx) => {
@@ -47,44 +61,71 @@ export function AppBreadcrumbs({
       return { label: toTitle(seg), href: isLast ? undefined : acc };
     });
 
-    // If the first segment isn't "dashboard", keep Dashboard as root
-    return segments[0] === "dashboard" ? rest : [...base, ...rest];
-  }, [pathname, items]);
+    // Jeśli pierwszy segment nie jest równy rootHref, dodaj korzeń na start
+    const startsAtRoot = `/${segments[0]}` === rootHref;
+    return startsAtRoot ? rest : [...base, ...rest];
+  }, [items, pathname, rootHref, rootLabel]);
 
-  const lastIdx = autoItems.length - 1;
+  // Collapsing (ellipsis) gdy za dużo segmentów
+  let renderItems = autoItems;
+  const needsEllipsis = autoItems.length > maxCrumbs;
+  if (needsEllipsis) {
+    // zachowaj: pierwszy, przedostatni, ostatni; resztę zwiń
+    const first = autoItems[0];
+    const lastTwo = autoItems.slice(-2);
+    renderItems = [first, { label: "…" }, ...lastTwo];
+  }
 
   return (
-    <nav aria-label="Breadcrumb" className={cn("text-sm", className)}>
-      <ol className="flex items-center gap-1 text-muted-foreground">
-        <li className="flex items-center gap-1">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-1 hover:text-foreground"
-            aria-label="Go to Dashboard"
-          >
-            <Home className="h-4 w-4" />
-            <span className="hidden sm:inline">Dashboard</span>
-          </Link>
-        </li>
-        {autoItems
-          // skip duplicated Dashboard root when auto build already includes it
-          .filter((c, i) => !(i === 0 && c.href === "/dashboard"))
-          .map((crumb, i) => {
-            const isLast = i === lastIdx - 1; // because we filtered possibly one
+    <Breadcrumb>
+      <BreadcrumbList>
+        {/* Ikona Home/Root */}
+        <BreadcrumbItem>
+          <BreadcrumbLink asChild href={rootHref} aria-label={`Go to ${rootLabel}`}>
+            <Link href={rootHref} className="inline-flex items-center gap-1">
+              <Home className="h-4 w-4" />
+              <span className="hidden sm:inline">{rootLabel}</span>
+            </Link>
+          </BreadcrumbLink>
+        </BreadcrumbItem>
+
+        {/* Separator po root */}
+        {renderItems.length > 0 && <BreadcrumbSeparator />}
+
+        {renderItems
+          // nie dubluj root, jeśli już pokazaliśmy go wyżej
+          .filter((c, i) => !(i === 0 && c.href === rootHref))
+          .map((crumb, i, arr) => {
+            const isLast = i === arr.length - 1;
+            const isEllipsis = crumb.label === "…";
+
+            if (isEllipsis) {
+              return (
+                <React.Fragment key={`ellipsis-${i}`}>
+                  <BreadcrumbItem>
+                    <BreadcrumbEllipsis />
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator />
+                </React.Fragment>
+              );
+            }
+
             return (
-              <li key={`${crumb.label}-${i}`} className="flex items-center gap-1">
-                <ChevronRight className="h-4 w-4" />
-                {crumb.href ? (
-                  <Link href={crumb.href} className="hover:text-foreground">
-                    {crumb.label}
-                  </Link>
-                ) : (
-                  <span className="text-foreground">{crumb.label}</span>
-                )}
-              </li>
+              <React.Fragment key={`${crumb.label}-${i}`}>
+                <BreadcrumbItem>
+                  {isLast || !crumb.href ? (
+                    <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
+                  ) : (
+                    <BreadcrumbLink asChild>
+                      <Link href={crumb.href}>{crumb.label}</Link>
+                    </BreadcrumbLink>
+                  )}
+                </BreadcrumbItem>
+                {!isLast && <BreadcrumbSeparator />}
+              </React.Fragment>
             );
           })}
-      </ol>
-    </nav>
+      </BreadcrumbList>
+    </Breadcrumb>
   );
 }

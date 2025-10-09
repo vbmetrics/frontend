@@ -1,6 +1,9 @@
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import "./globals.css";
 
 import { cn } from "@/lib/utils"; 
+
+import { cookies } from "next/headers";
 
 import { Toaster } from "sonner";
 
@@ -27,16 +30,19 @@ export const viewport: Viewport = {
   themeColor: '#0ddd6ff',
 };
 
-export default function HomeLayout({
+export default async function HomeLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
+    const accent = (await cookies()).get("vbm-accent")?.value || "indigo"; // default
     return (
-    <html lang="pl" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={`accent-${accent}`}>
       <body>
-        {children}
-        <Toaster richColors />
+        <ThemeProvider>
+          {children}
+          <Toaster richColors />
+        </ThemeProvider>
       </body>
     </html>
   );

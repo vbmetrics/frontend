@@ -1,6 +1,6 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
-import { AppHeader } from "@/components/navigation/header/AppHeader";
+import { AppHeader } from "@/components/app/AppHeader";
 
 import { AppSidebar } from "@/components/navigation/sidebar/AppSidebar";
 
@@ -11,8 +11,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <AppHeader />
     <SidebarProvider>
       <AppSidebar />
-      <main className="w-full mr-20">
-        <SidebarTrigger />
+      <SidebarTrigger className="p-1" />
+      <main className="w-full mr-20 p-12">
         {children}
       </main>
     </SidebarProvider>

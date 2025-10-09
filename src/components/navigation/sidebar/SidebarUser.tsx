@@ -13,6 +13,8 @@ import {
   BiBuildings,
 } from "react-icons/bi";
 
+import { cn } from "@/lib/utils";
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -159,6 +161,7 @@ export function SidebarUser() {
                   checked={notifOn}
                   onCheckedChange={setNotifOn}
                   onClick={(e) => e.stopPropagation()}
+                  className={cn("relative z-0 h-6 w-10.5 border bg-primary",)}
                 />
               </DropdownMenuItem>
             </DropdownMenuGroup>

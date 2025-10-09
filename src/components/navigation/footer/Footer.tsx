@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export function Footer() {
   return (
-    <footer className="bg-footer">
+    <footer className="footer-surface">
       <div className="flex w-full items-center justify-center px-6 py-6 md:h-24 md:py-0">
         <p className="text-sm text-muted-foreground">
           &copy; <Link href="https://skublin.me/" className=""><span>Szymon Kublin</span></Link> {new Date().getFullYear()}
