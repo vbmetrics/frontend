@@ -23,12 +23,12 @@ export function StatusDots({ className = "" }: { className?: string }) {
   const collapsed = state === "collapsed";
   if (collapsed) return null;
 
-  const { data: liveData, error: liveErr } = useSWR<any>(
-    "/api/backend/api/v1/matches?status=live&limit=1",
+  /* const { data: liveData, error: liveErr } = useSWR<any>(
+    "/api/backend/api/v1/match&limit=1",
     fetcherJson,
     { revalidateOnFocus: false }
-  );
-  const isLive = !liveErr && Array.isArray(liveData) && liveData.length > 0;
+  ); */
+  const isLive = true; /* !liveErr && Array.isArray(liveData) && liveData.length > 0; */
 
   const { data: apiOk, error: apiErr } = useSWR<string>("/api/health/api", fetcherText, { revalidateOnFocus: false });
   const { data: dbOk,  error: dbErr  } = useSWR<string>("/api/health/db",  fetcherText, { revalidateOnFocus: false });

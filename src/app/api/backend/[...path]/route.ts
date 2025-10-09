@@ -1,66 +1,95 @@
+// src/app/api/backend/[...path]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 
-const API_BASE = process.env.API_BASE!;
+// np. http://127.0.0.1:8000 – Twój FastAPI
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
 
-type Ctx = { params: Promise<{ path: string[] }> };
-
-const HOP_BY_HOP = new Set([
-  "connection","keep-alive","proxy-authenticate","proxy-authorization","te",
-  "trailer","transfer-encoding","upgrade","host",
+const COLLECTION_ENDPOINTS = new Set([
+  "arena",
+  "season",
+  "team",
+  "player",
+  "player-team-history",
+  "staff-member",
+  "staff-team-history",
+  "match",
+  "set",
+  "rally",
+  "action",
+  "special-event",
+  "country",
 ]);
 
-async function proxy(req: NextRequest, path: string[]) {
-  if (!API_BASE) {
-    return NextResponse.json({ error: "Missing API_BASE env" }, { status: 500 });
+function ensureTrailingSlash(url: URL) {
+  const segs = url.pathname.split("/").filter(Boolean);
+  const last = segs[segs.length - 1] ?? "";
+  if (COLLECTION_ENDPOINTS.has(last) && !url.pathname.endsWith("/")) {
+    url.pathname = url.pathname + "/";
+  }
+}
+
+async function handler(req: NextRequest, ctx: { params: { path: string[] } }) {
+  const { search } = req.nextUrl;
+  const path = "/" + ((await ctx.params).path?.join("/") ?? "");
+  const target = new URL(API_BASE + path + search);
+
+  // 1) unikamy 307 z FastAPI na kolekcjach
+  ensureTrailingSlash(target);
+
+  // 2) kopiujemy nagłówki (bez nextowych)
+  const headers = new Headers(req.headers);
+  headers.delete("x-nextjs-data");
+  headers.set("host", target.host);
+  headers.set("origin", target.origin);
+
+  const method = req.method;
+  let body: ArrayBuffer | undefined;
+
+  // 3) Buforuj body TYLKO gdy trzeba (GET/HEAD bez body).
+  if (method !== "GET" && method !== "HEAD") {
+    const ab = await req.arrayBuffer();
+    body = ab;
+    headers.set("content-length", String(ab.byteLength));
+    if (!headers.get("content-type")) {
+      headers.set("content-type", "application/json");
+    }
   }
 
-  // 1) Pobierz token z cookie
-  const cookieStore = await cookies();
-  const token = cookieStore.get("access_token")?.value;
-  if (!token) return new NextResponse("Unauthorized", { status: 401 });
-
-  // 2) Zbuduj URL upstream (API)
-  const srcUrl = new URL(req.url);
-  const base = API_BASE.replace(/\/+$/, "");
-  const pathname = path.length ? "/" + path.join("/") : "";
-  const targetUrl = new URL(base + pathname);
-  targetUrl.search = srcUrl.search; // przekaż query string
-
-  // 3) Zbuduj nagłówki (bez hop-by-hop) + Bearer
-  const headers = new Headers();
-  req.headers.forEach((v, k) => {
-    if (!HOP_BY_HOP.has(k.toLowerCase())) headers.set(k, v);
-  });
-  headers.set("authorization", `Bearer ${token}`);
-
-  // 4) Body tylko dla metod z ciałem
-  const method = req.method.toUpperCase();
-  const body = method === "GET" || method === "HEAD" ? undefined : await req.arrayBuffer();
-
-  // 5) KLUCZ: pozwól fetchowi PODĄŻAĆ za 3xx (np. 307 -> / z tym samym body i nagłówkami)
-  const upstream = await fetch(targetUrl, {
+  // 4) Nie pozwól automatycznie śledzić 3xx (żeby nie trzeba było „odtwarzać” body)
+  let upstream = await fetch(target, {
     method,
     headers,
     body,
-    redirect: "follow", // <— to rozwiązuje problem 307 -> 8000
+    redirect: "manual",
   });
 
-  // 6) Przepuść sensowne nagłówki odpowiedzi
-  const resHeaders = new Headers();
-  for (const h of ["content-type","location","www-authenticate","cache-control","etag"]) {
-    const v = upstream.headers.get(h);
-    if (v) resHeaders.set(h, v);
+  // 5) awaryjnie obsłuż ew. 3xx
+  if (upstream.status >= 300 && upstream.status < 400) {
+    const loc = upstream.headers.get("location");
+    if (loc) {
+      const redirected = new URL(loc, API_BASE);
+      upstream = await fetch(redirected, { method, headers, body });
+    }
   }
 
-  const buf = await upstream.arrayBuffer();
-  return new NextResponse(buf, { status: upstream.status, headers: resHeaders });
+  // 6) przekopiuj nagłówki (w tym set-cookie)
+  const respHeaders = new Headers(upstream.headers);
+  const setCookies = (upstream as any).headers?.getSetCookie?.() as string[] | undefined;
+  if (Array.isArray(setCookies)) {
+    respHeaders.delete("set-cookie");
+    for (const c of setCookies) respHeaders.append("set-cookie", c);
+  }
+
+  return new NextResponse(upstream.body, {
+    status: upstream.status,
+    statusText: upstream.statusText,
+    headers: respHeaders,
+  });
 }
 
-export async function GET(req: NextRequest, ctx: Ctx)   { const { path } = await ctx.params; return proxy(req, path); }
-export async function HEAD(req: NextRequest, ctx: Ctx)  { const { path } = await ctx.params; return proxy(req, path); }
-export async function POST(req: NextRequest, ctx: Ctx)  { const { path } = await ctx.params; return proxy(req, path); }
-export async function PUT(req: NextRequest, ctx: Ctx)   { const { path } = await ctx.params; return proxy(req, path); }
-export async function PATCH(req: NextRequest, ctx: Ctx) { const { path } = await ctx.params; return proxy(req, path); }
-export async function DELETE(req: NextRequest, ctx: Ctx){ const { path } = await ctx.params; return proxy(req, path); }
-export async function OPTIONS(req: NextRequest, ctx: Ctx){ const { path } = await ctx.params; return proxy(req, path); }
+export const GET = handler;
+export const HEAD = handler;
+export const POST = handler;
+export const PUT = handler;
+export const PATCH = handler;
+export const DELETE = handler;
