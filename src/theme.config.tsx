@@ -1,4 +1,3 @@
-// src/theme.config.tsx
 import React from "react";
 
 export default {
