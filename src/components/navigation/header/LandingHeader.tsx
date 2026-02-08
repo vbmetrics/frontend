@@ -18,7 +18,7 @@ export function LandingHeader() {
         <nav className="relative z-10 pointer-events-auto flex items-center gap-2 text-sm font-medium">
           {/* Jeden CTA: otwiera modal logowania (z możliwością przełączenia na Sign up) */}
           <Link
-            href={{ pathname: "/", query: { auth: "1", tab: "signin", next: "/dashboard" } }}
+            href={{ pathname: "/", query: { signin: "1", tab: "signin", next: "/dashboard" } }}
             className={cn(
               buttonVariants({ variant: "start" }),
               "hidden sm:inline-flex text-background"

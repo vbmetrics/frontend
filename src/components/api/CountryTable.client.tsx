@@ -34,7 +34,7 @@ type CountryReadDTO = {
 };
 
 const fetcher = async (url: string) => {
-  const r = await fetch(url, { cache: "no-store" });
+  const r = await fetch(url, { cache: "no-store", credentials: "include" });
   if (!r.ok) {
     const t = await r.text().catch(() => "");
     throw new Error(`${r.status}: ${t || r.statusText}`);

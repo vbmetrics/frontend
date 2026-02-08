@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -82,7 +83,7 @@ export function AuthDialog() {
   const router = useRouter();
   const sp = useSearchParams();
 
-  const isOpen = sp.get("auth") === "1";
+  const isOpen = sp.get("signin") === "1";
   const next = sp.get("next") || "/dashboard";
   const tabParam = sp.get("tab") === "signup" ? "signup" : "signin";
   const [tab, setTab] = React.useState<"signin" | "signup">(tabParam);
@@ -94,7 +95,7 @@ export function AuthDialog() {
 
   const close = () => {
     const url = new URL(window.location.href);
-    url.searchParams.delete("auth");
+    url.searchParams.delete("signin");
     url.searchParams.delete("tab");
     url.searchParams.delete("next");
     router.replace(url.pathname + url.search, { scroll: false });
@@ -102,7 +103,7 @@ export function AuthDialog() {
 
   const switchTab = (target: "signin" | "signup") => {
     const url = new URL(window.location.href);
-    url.searchParams.set("auth", "1");
+    url.searchParams.set("signin", "1");
     url.searchParams.set("tab", target);
     if (next) url.searchParams.set("next", next);
     router.replace(url.pathname + url.search, { scroll: false });
@@ -155,6 +156,7 @@ export function AuthDialog() {
         throw new Error(message);
       }
       toast.success("Signed in");
+      router.refresh();
       router.push(next);
     } catch (err: any) {
       const msg = err?.message || "Sign-in failed";
@@ -190,6 +192,7 @@ export function AuthDialog() {
         throw new Error(message);
       }
       toast.success("Account created");
+      router.refresh();
       router.push(next);
     } catch (err: any) {
       const msg = err?.message || "Sign-up failed";
@@ -441,5 +444,13 @@ export function AuthDialog() {
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+export default function AuthDialogSuspended() {
+  return (
+    <Suspense fallback={null}>
+      <AuthDialog />
+    </Suspense>
   );
 }

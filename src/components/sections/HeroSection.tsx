@@ -24,7 +24,7 @@ export function HeroSection() {
         </p>
 
         <Link
-          href={{ pathname: "/", query: { auth: "1", tab: "signin", next: "/dashboard" } }}
+          href={{ pathname: "/", query: { signin: "1", tab: "signin", next: "/dashboard" } }}
           className={cn(
             buttonVariants({ variant: "start" }),
             "inline-flex items-center justify-center gap-6 px-10 py-6 text-background text-xl font-bold"
