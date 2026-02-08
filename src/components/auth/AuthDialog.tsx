@@ -215,7 +215,7 @@ export function AuthDialog() {
     <Dialog open={isOpen} onOpenChange={(o) => (!o ? close() : null)}>
       <DialogContent
         className={cn(
-          "sm:max-w-[360px] md:max-w-[520px] p-0 overflow-hidden rounded-2xl",
+          "sm:max-w-90 md:max-w-130 p-0 overflow-hidden rounded-2xl",
           "border border-border bg-card text-card-foreground"
         )}
       >
