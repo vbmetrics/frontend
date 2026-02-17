@@ -42,6 +42,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { useTeamStore } from "@/stores/useTeamStore";
+import { useSeasonStore } from "@/stores/useSeasonStore";
 
 // --- TYPES ---
 
@@ -70,6 +72,7 @@ async function apiCall(url: string, method: string, body?: any) {
   const res = await fetch(url, {
     method,
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
@@ -224,6 +227,9 @@ export default function PlayerTeamHistoryTableClient() {
   const [filterTeam, setFilterTeam] = React.useState<string>("ALL");
   const [filterSeason, setFilterSeason] = React.useState<string>("ALL");
 
+  const { selectedTeam } = useTeamStore();
+  const { selectedSeasonIds } = useSeasonStore();
+
   // Dictionaries fetches
   const { data: players } = useSWR<PlayerDictItem[]>("/api/backend/api/v1/player/?limit=1000", fetcher);
   const { data: teams } = useSWR<DictItem[]>("/api/backend/api/v1/team/?limit=1000", fetcher);
@@ -238,11 +244,24 @@ export default function PlayerTeamHistoryTableClient() {
     });
     
     if (filterPlayer !== "ALL") params.set("player_id", filterPlayer);
-    if (filterTeam !== "ALL") params.set("team_id", filterTeam);
-    if (filterSeason !== "ALL") params.set("season_id", filterSeason);
+
+    if (selectedTeam) {
+      params.set("team_id", selectedTeam.id);
+    } else if (filterTeam !== "ALL") {
+       // Jeśli nie ma globalnego, używamy lokalnego (z dropdownu w tabeli)
+       params.set("team_id", filterTeam);
+    }
+
+    // Sezony to tablica w Zustand. Jak je przekazać?
+    // FastAPI wspiera wiele parametrów o tej samej nazwie: ?season_id=1&season_id=2
+    if (selectedSeasonIds.length > 0) {
+        selectedSeasonIds.forEach(id => params.append("season_id", id));
+    } else if (filterSeason !== "ALL") {
+        params.set("season_id", filterSeason);
+    }
     
     return `/api/backend/api/v1/player-team-history/?${params.toString()}`;
-  }, [pageSize, skip, filterPlayer, filterTeam, filterSeason]);
+  }, [pageSize, skip, filterPlayer, filterTeam, filterSeason, selectedTeam, selectedSeasonIds]);
   
   const { data, error, isLoading, mutate, isValidating } = useSWR<PlayerTeamHistoryReadDTO[]>(
     queryUrl,
@@ -322,7 +341,11 @@ export default function PlayerTeamHistoryTableClient() {
           </Select>
 
           {/* Team Filter */}
-          <Select value={filterTeam} onValueChange={(v) => { setFilterTeam(v); setPageIndex(0); }} disabled={!teams}>
+          <Select 
+            value={selectedTeam ? selectedTeam.id : filterTeam} // Wymuszona wartość
+            onValueChange={(v) => { setFilterTeam(v); setPageIndex(0); }} 
+            disabled={!teams || !!selectedTeam} // ZABLOKUJ jeśli jest globalnie wybrany
+          >
             <SelectTrigger className="w-45 sm:w-55">
               <SelectValue placeholder="Filter by Team" />
             </SelectTrigger>

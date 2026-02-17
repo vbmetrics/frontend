@@ -52,7 +52,18 @@ function useLocalStorage<T>(key: string, initial: T) {
   return [value, setValue] as const;
 }
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+const fetcher = async (url: string) => {
+  const r = await fetch(url, { 
+    cache: "no-store", 
+    credentials: "include" // Wysyła ciasteczko autoryzacyjne
+  });
+  
+  if (!r.ok) {
+    throw new Error("Failed to fetch data");
+  }
+  
+  return await r.json();
+};
 
 export function OrgTeamSeasonSwitchers() {
   const { state } = useSidebar();

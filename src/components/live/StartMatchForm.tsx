@@ -5,32 +5,54 @@ import useSWR from "swr";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-
-import { apiFetch } from "@/lib/api/client";
-import { buildUrl } from "@/lib/api/http";
+import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-
 import {
-  createMatch,
-  listArenas,
-  listSeasons,
-  listTeams,
-  type UUID,
-  type Season,
-  type Team,
-  type Arena,
-} from "@/lib/api/matches";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
+// Importy globalnego stanu (Zustand)
+import { useTeamStore } from "@/stores/useTeamStore";
+import { useSeasonStore } from "@/stores/useSeasonStore";
+
+// --- Własne wywołania API (odporne na brak ciasteczek) ---
+const fetcher = async (url: string) => {
+  const r = await fetch(url, { cache: "no-store", credentials: "include" });
+  if (!r.ok) throw new Error("Failed to fetch data");
+  return await r.json();
+};
+
+async function apiCall(url: string, method: string, body?: any) {
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || errorData.message || "API request failed");
+  }
+  return res.json();
+}
+
+// Typy słownikowe
+interface DictItem { id: string; name: string; }
+
+// Zod - usunięto pole description, dopasowano do backendu
 const Schema = z
   .object({
     season_id: z.string().uuid("Select season."),
     home_team_id: z.string().uuid("Select home team."),
     away_team_id: z.string().uuid("Select away team."),
-    arena_id: z.string().uuid("Select arena."),
+    arena_id: z.string().uuid("Select arena.").optional().or(z.literal("")),
     match_date: z
       .string()
       .min(10, "Choose date (YYYY-MM-DD).")
@@ -42,11 +64,10 @@ const Schema = z
       .refine((v) => v === undefined || (Number.isInteger(v) && v >= 0), {
         message: "Spectators must be a non-negative integer.",
       }),
-    description: z.string().max(500).optional(),
   })
   .refine((data) => data.home_team_id !== data.away_team_id, {
     path: ["away_team_id"],
-    message: "Teams must be different.",
+    message: "Away team must be different from home team.",
   });
 
 type FormValues = z.infer<typeof Schema>;
@@ -54,49 +75,31 @@ type FormValues = z.infer<typeof Schema>;
 export function StartMatchForm() {
   const router = useRouter();
 
+  // Pobranie wartości z globalnego Sidebara
+  const { selectedTeam } = useTeamStore();
+  const { selectedSeasonIds } = useSeasonStore();
+
+  const defaultSeason = selectedSeasonIds.length === 1 ? selectedSeasonIds[0] : "";
+  const defaultTeam = selectedTeam ? selectedTeam.id : "";
+
   const [values, setValues] = React.useState<FormValues>({
-    season_id: "",
-    home_team_id: "",
+    season_id: defaultSeason,
+    home_team_id: defaultTeam,
     away_team_id: "",
     arena_id: "",
     match_date: new Date().toISOString().slice(0, 10),
     spectators: undefined,
-    description: "",
   });
+
   const [errors, setErrors] = React.useState<Partial<Record<keyof FormValues, string>>>({});
   const [pending, setPending] = React.useState(false);
 
-  const seasonUrl = buildUrl("/api/v1/season", { limit: 500 });
-  const arenaUrl  = buildUrl("/api/v1/arena",  { limit: 500 });
-
-  const { data: seasons, error: seasonsErr } =
-    useSWR<Season[]>(seasonUrl, (url) => apiFetch<Season[]>(url), {
-      revalidateOnFocus: false,
-      onError: (e) => console.error("Seasons error:", e),
-    });
-
-  const { data: arenas, error: arenasErr } =
-    useSWR<Arena[]>(arenaUrl, (url) => apiFetch<Arena[]>(url), {
-      revalidateOnFocus: false,
-      onError: (e) => console.error("Arenas error:", e),
-    });
-
-  const seasonId = values.season_id as UUID | "";
-
-  const teamsUrl = seasonId
-    ? buildUrl("/api/v1/team", { season_id: seasonId, limit: 500 })
-    : null;
-
-  const { data: teams, error: teamsErr } =
-    useSWR<Team[]>(teamsUrl, (url: string) => apiFetch<Team[]>(url), {
-      revalidateOnFocus: false,
-      onError: (e) => console.error("Teams error:", e),
-    });
-
-  // opcjonalnie: możesz pokazać spinnery / błędy pod selectami:
-  const loadingSeasons = !seasons && !seasonsErr;
-  const loadingArenas  = !arenas && !arenasErr;
-  const loadingTeams   = seasonId && !teams && !teamsErr;
+  const { data: seasons } = useSWR<DictItem[]>("/api/backend/api/v1/season/?limit=500", fetcher);
+  const { data: arenas } = useSWR<DictItem[]>("/api/backend/api/v1/arena/?limit=500", fetcher);
+  
+  // Pobierz drużyny, ale tylko dla wybranego sezonu (jeśli API to wspiera)
+  const teamsUrl = values.season_id ? `/api/backend/api/v1/team/?season_id=${values.season_id}&limit=500` : null;
+  const { data: teams, isLoading: teamsLoading } = useSWR<DictItem[]>(teamsUrl, fetcher);
 
   const onChange = (k: keyof FormValues, v: any) => {
     setValues((s) => ({ ...s, [k]: v }));
@@ -108,6 +111,7 @@ export function StartMatchForm() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsed = Schema.safeParse(values);
+    
     if (!parsed.success) {
       const map: Partial<Record<keyof FormValues, string>> = {};
       for (const issue of parsed.error.issues) {
@@ -115,25 +119,30 @@ export function StartMatchForm() {
         map[key] = issue.message;
       }
       setErrors(map);
-      toast.error("Please fix the form.");
+      toast.error("Please fix the errors in the form.");
       return;
     }
+    
     setErrors({});
     setPending(true);
+    
     try {
-      const payload = {
+      const payload: Record<string, any> = {
         match_date: parsed.data.match_date,
-        spectators: parsed.data.spectators ?? undefined,
-        season_id: parsed.data.season_id as UUID,
-        home_team_id: parsed.data.home_team_id as UUID,
-        away_team_id: parsed.data.away_team_id as UUID,
-        arena_id: parsed.data.arena_id as UUID,
+        season_id: parsed.data.season_id,
+        home_team_id: parsed.data.home_team_id,
+        away_team_id: parsed.data.away_team_id,
       };
-      const created = await createMatch(payload); // -> { id }
-      toast.success("Match created");
+
+      if (parsed.data.spectators !== undefined) payload.spectators = parsed.data.spectators;
+      if (parsed.data.arena_id) payload.arena_id = parsed.data.arena_id;
+
+      // Zastąpiono customową funkcją apiCall, która poprawnie przekaże tokeny
+      const created = await apiCall("/api/backend/api/v1/match/", "POST", payload);
+      
+      toast.success("Match created successfully!");
       router.push(`/live/${created.id}/setup`);
     } catch (err: any) {
-      console.error(err);
       toast.error(err?.message ?? "Failed to create match");
     } finally {
       setPending(false);
@@ -141,93 +150,97 @@ export function StartMatchForm() {
   };
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-6 rounded-lg border bg-card p-6">
+    <form onSubmit={onSubmit} className="grid gap-6 rounded-lg border bg-card p-6 max-w-4xl">
       <h2 className="text-xl font-semibold">Start a new match</h2>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="grid gap-2">
-          <Label htmlFor="season_id">Season</Label>
-          <select
-            id="season_id"
-            className="h-10 rounded-md border bg-background px-3"
-            value={values.season_id}
-            onChange={(e) => onChange("season_id", e.target.value)}
-          >
-            <option value="">Select…</option>
-            {seasons?.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
+      <div className="grid gap-6 md:grid-cols-2">
+        
+        {/* SEASON */}
+        <div className="space-y-2">
+          <Label htmlFor="season_id">Season <span className="text-red-500">*</span></Label>
+          <Select value={values.season_id} onValueChange={(v) => onChange("season_id", v)}>
+            <SelectTrigger id="season_id" className={errors.season_id ? "border-destructive" : ""}>
+              <SelectValue placeholder="Select season..." />
+            </SelectTrigger>
+            <SelectContent>
+              {seasons?.map((s) => (
+                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {errors.season_id && <p className="text-xs text-destructive">{errors.season_id}</p>}
         </div>
 
-        <div className="grid gap-2">
+        {/* ARENA */}
+        <div className="space-y-2">
           <Label htmlFor="arena_id">Arena</Label>
-          <select
-            id="arena_id"
-            className="h-10 rounded-md border bg-background px-3"
-            value={values.arena_id}
-            onChange={(e) => onChange("arena_id", e.target.value)}
-          >
-            <option value="">Select…</option>
-            {arenas?.map((a) => (
-              <option key={a.id} value={a.id}>{a.name}</option>
-            ))}
-          </select>
+          <Select value={values.arena_id} onValueChange={(v) => onChange("arena_id", v === "none" ? "" : v)}>
+            <SelectTrigger id="arena_id">
+              <SelectValue placeholder="Select arena (optional)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">None</SelectItem>
+              {arenas?.map((a) => (
+                <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {errors.arena_id && <p className="text-xs text-destructive">{errors.arena_id}</p>}
         </div>
 
-        <div className="grid gap-2">
-          <Label htmlFor="home_team_id">Home team</Label>
-          <select
-            id="home_team_id"
-            className="h-10 rounded-md border bg-background px-3"
-            value={values.home_team_id}
-            onChange={(e) => onChange("home_team_id", e.target.value)}
-            disabled={!teams}
-          >
-            <option value="">Select…</option>
-            {teams?.map((t) => (
-              <option key={t.id} value={t.id}>{t.name}</option>
-            ))}
-          </select>
+        {/* HOME TEAM */}
+        <div className="space-y-2">
+          <Label htmlFor="home_team_id">Home team <span className="text-red-500">*</span></Label>
+          <Select value={values.home_team_id} onValueChange={(v) => onChange("home_team_id", v)} disabled={!values.season_id || teamsLoading}>
+            <SelectTrigger id="home_team_id" className={errors.home_team_id ? "border-destructive" : ""}>
+              <SelectValue placeholder={teamsLoading ? "Loading teams..." : "Select home team"} />
+            </SelectTrigger>
+            <SelectContent>
+              {teams?.map((t) => (
+                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {errors.home_team_id && <p className="text-xs text-destructive">{errors.home_team_id}</p>}
         </div>
 
-        <div className="grid gap-2">
-          <Label htmlFor="away_team_id">Away team</Label>
-          <select
-            id="away_team_id"
-            className="h-10 rounded-md border bg-background px-3"
-            value={values.away_team_id}
-            onChange={(e) => onChange("away_team_id", e.target.value)}
-            disabled={!teams}
-          >
-            <option value="">Select…</option>
-            {teams?.map((t) => (
-              <option key={t.id} value={t.id}>{t.name}</option>
-            ))}
-          </select>
+        {/* AWAY TEAM */}
+        <div className="space-y-2">
+          <Label htmlFor="away_team_id">Away team <span className="text-red-500">*</span></Label>
+          <Select value={values.away_team_id} onValueChange={(v) => onChange("away_team_id", v)} disabled={!values.season_id || teamsLoading}>
+            <SelectTrigger id="away_team_id" className={errors.away_team_id ? "border-destructive" : ""}>
+              <SelectValue placeholder={teamsLoading ? "Loading teams..." : "Select away team"} />
+            </SelectTrigger>
+            <SelectContent>
+              {teams?.map((t) => (
+                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {errors.away_team_id && <p className="text-xs text-destructive">{errors.away_team_id}</p>}
         </div>
 
-        <div className="grid gap-2">
-          <Label htmlFor="match_date">Date</Label>
+        {/* MATCH DATE */}
+        <div className="space-y-2">
+          <Label htmlFor="match_date">Match Date <span className="text-red-500">*</span></Label>
           <Input
             id="match_date"
             type="date"
             value={values.match_date}
             onChange={(e) => onChange("match_date", e.target.value)}
+            className={errors.match_date ? "border-destructive" : ""}
           />
           {errors.match_date && <p className="text-xs text-destructive">{errors.match_date}</p>}
         </div>
 
-        <div className="grid gap-2">
+        {/* SPECTATORS */}
+        <div className="space-y-2">
           <Label htmlFor="spectators">Spectators (optional)</Label>
           <Input
             id="spectators"
             type="number"
             min={0}
+            placeholder="e.g. 2500"
             value={values.spectators ?? ""}
             onChange={(e) =>
               onChange("spectators", e.target.value === "" ? undefined : e.target.value)
@@ -237,20 +250,10 @@ export function StartMatchForm() {
         </div>
       </div>
 
-      <div className="grid gap-2">
-        <Label htmlFor="description">Description (optional)</Label>
-        <Textarea
-          id="description"
-          value={values.description ?? ""}
-          onChange={(e) => onChange("description", e.target.value)}
-          placeholder="Short match note…"
-        />
-        {errors.description && <p className="text-xs text-destructive">{errors.description}</p>}
-      </div>
-
-      <div className="flex justify-end">
-        <Button type="submit" disabled={pending} className="text-background">
-          {pending ? "Creating…" : "Create & continue"}
+      <div className="flex justify-end pt-4 border-t">
+        <Button type="submit" disabled={pending} className="gap-2">
+          {pending && <Loader2 className="h-4 w-4 animate-spin" />}
+          {pending ? "Creating..." : "Create & Setup Match"}
         </Button>
       </div>
     </form>

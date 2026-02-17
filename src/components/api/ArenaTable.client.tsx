@@ -60,6 +60,7 @@ async function apiCall(url: string, method: string, body?: any) {
   const res = await fetch(url, {
     method,
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
