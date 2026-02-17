@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PageHeader } from "@/components/app/PageHeader";
 
 type Category = "bug" | "idea" | "question";
 
@@ -66,11 +67,12 @@ export default function FeedbackPage() {
   };
 
   return (
-    <div className="p-6 max-w-2xl">
-      <h1 className="text-3xl font-bold mb-1">Feedback</h1>
-      <p className="text-muted-foreground mb-6">
-        Tell us what to improve. This form is mock-only (no API call).
-      </p>
+    <div className="space-y-6">
+      <PageHeader
+        title="Feedback"
+        description="Tell us what to improve. This form is mock-only (no API call)."
+        breadcrumbs={[{ label: "Feedback" }]}
+      />
 
       {/* aria-live dla czytników ekranu */}
       <div aria-live="polite" className="sr-only">

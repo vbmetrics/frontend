@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import useSWR from "swr";
-import { Search, Plus, Pencil, Trash2, Loader2, Globe2 } from "lucide-react";
+import { Search, FilterX, Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -38,11 +45,14 @@ import {
 
 // --- TYPES ---
 
-export interface CountryReadDTO {
-  name: string;
-  alpha_2_code: string;
-  latitude: number;
-  longitude: number;
+export type StaffRoleType = "head_coach" | "assistant";
+
+export interface StaffMemberReadDTO {
+  id: string;
+  first_name: string;
+  last_name: string;
+  role_type: StaffRoleType;
+  nationality_code: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -52,7 +62,7 @@ export interface CountryReadDTO {
 const fetcher = async (url: string) => {
   const r = await fetch(url, { cache: "no-store", credentials: "include" });
   if (!r.ok) throw new Error("Failed to fetch data");
-  return (await r.json()) as CountryReadDTO[];
+  return (await r.json()) as StaffMemberReadDTO[];
 };
 
 async function apiCall(url: string, method: string, body?: any) {
@@ -68,6 +78,10 @@ async function apiCall(url: string, method: string, body?: any) {
   if (method !== "DELETE") return res.json();
 }
 
+function formatRole(role: StaffRoleType) {
+  return role.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
+
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = React.useState<T>(value);
   React.useEffect(() => {
@@ -77,17 +91,17 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-// --- COMPONENT: COUNTRY FORM (CREATE / UPDATE) ---
+// --- COMPONENT: STAFF FORM (CREATE / UPDATE) ---
 
-function CountryFormDialog({
+function StaffFormDialog({
   isOpen,
   onClose,
-  country,
+  staff,
   onSuccess,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  country: CountryReadDTO | null;
+  staff: StaffMemberReadDTO | null;
   onSuccess: () => void;
 }) {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -97,22 +111,20 @@ function CountryFormDialog({
     setIsSubmitting(true);
     
     const formData = new FormData(e.currentTarget);
-    const data: Record<string, any> = {
-      name: formData.get("name") as string,
-      latitude: Number(formData.get("latitude")),
-      longitude: Number(formData.get("longitude")),
+    const data = {
+      first_name: formData.get("first_name") as string,
+      last_name: formData.get("last_name") as string,
+      nationality_code: (formData.get("nationality_code") as string).toUpperCase(),
+      role_type: formData.get("role_type") as StaffRoleType,
     };
 
     try {
-      if (country) {
-        // Update (alpha_2_code is NOT sent in PATCH body per CountryUpdateDTO)
-        await apiCall(`/api/backend/api/v1/country/${country.alpha_2_code}`, "PATCH", data);
-        toast.success("Country updated successfully");
+      if (staff) {
+        await apiCall(`/api/backend/api/v1/staff-member/${staff.id}`, "PATCH", data);
+        toast.success("Staff member updated successfully");
       } else {
-        // Create (alpha_2_code IS required)
-        data.alpha_2_code = (formData.get("alpha_2_code") as string).toUpperCase();
-        await apiCall(`/api/backend/api/v1/country/`, "POST", data);
-        toast.success("Country created successfully");
+        await apiCall(`/api/backend/api/v1/staff-member/`, "POST", data);
+        toast.success("Staff member created successfully");
       }
       onSuccess();
       onClose();
@@ -127,66 +139,46 @@ function CountryFormDialog({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-106.25">
         <DialogHeader>
-          <DialogTitle>{country ? "Edit Country" : "Add New Country"}</DialogTitle>
+          <DialogTitle>{staff ? "Edit Staff Member" : "Add Staff Member"}</DialogTitle>
           <DialogDescription>
-            {country ? "Update geographical details." : "Add a new country to the database."}
+            {staff ? "Update the details for this staff member." : "Fill in the details to add a new staff member."}
           </DialogDescription>
         </DialogHeader>
 
-        <form id="country-form" onSubmit={handleSubmit} className="space-y-4 py-4">
+        <form id="staff-form" onSubmit={handleSubmit} className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="alpha_2_code">Country Code (ISO 2) <span className="text-red-500">*</span></Label>
-            <Input 
-              id="alpha_2_code" 
-              name="alpha_2_code" 
-              placeholder="e.g. PL, US, IT" 
-              minLength={2} 
-              maxLength={2} 
-              defaultValue={country?.alpha_2_code} 
-              disabled={!!country} // ZABLOKOWANE podczas edycji (Primary Key)
-              required 
-            />
-            {!!country && <p className="text-xs text-muted-foreground">Country code cannot be changed.</p>}
+            <Label htmlFor="first_name">First Name <span className="text-red-500">*</span></Label>
+            <Input id="first_name" name="first_name" defaultValue={staff?.first_name} required />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="last_name">Last Name <span className="text-red-500">*</span></Label>
+            <Input id="last_name" name="last_name" defaultValue={staff?.last_name} required />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="name">Country Name <span className="text-red-500">*</span></Label>
-            <Input id="name" name="name" placeholder="e.g. Poland" defaultValue={country?.name} required />
+            <Label htmlFor="nationality_code">Nationality (ISO 2) <span className="text-red-500">*</span></Label>
+            <Input id="nationality_code" name="nationality_code" placeholder="PL, US, IT..." minLength={2} maxLength={2} defaultValue={staff?.nationality_code} required />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="latitude">Latitude <span className="text-red-500">*</span></Label>
-              <Input 
-                id="latitude" 
-                name="latitude" 
-                type="number" 
-                step="any" // Pozwala na ułamki
-                placeholder="52.23" 
-                defaultValue={country?.latitude} 
-                required 
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="longitude">Longitude <span className="text-red-500">*</span></Label>
-              <Input 
-                id="longitude" 
-                name="longitude" 
-                type="number" 
-                step="any"
-                placeholder="21.01" 
-                defaultValue={country?.longitude} 
-                required 
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="role_type">Role <span className="text-red-500">*</span></Label>
+            <Select name="role_type" defaultValue={staff?.role_type || "head_coach"} required>
+              <SelectTrigger>
+                <SelectValue placeholder="Select role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="head_coach">Head Coach</SelectItem>
+                <SelectItem value="assistant">Assistant</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </form>
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isSubmitting}>Cancel</Button>
-          <Button type="submit" form="country-form" disabled={isSubmitting}>
+          <Button type="submit" form="staff-form" disabled={isSubmitting}>
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            {country ? "Save Changes" : "Create Country"}
+            {staff ? "Save Changes" : "Create"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -196,16 +188,17 @@ function CountryFormDialog({
 
 // --- MAIN TABLE COMPONENT ---
 
-export default function CountryTableClient() {
+export default function StaffMemberTableClient() {
   const [pageSize] = React.useState<number>(10);
   const [pageIndex, setPageIndex] = React.useState<number>(0);
   
   const [searchTerm, setSearchTerm] = React.useState("");
   const debouncedSearch = useDebounce(searchTerm, 500);
+  const [roleFilter, setRoleFilter] = React.useState<string>("ALL");
 
   const [formModalOpen, setFormModalOpen] = React.useState(false);
-  const [countryToEdit, setCountryToEdit] = React.useState<CountryReadDTO | null>(null);
-  const [countryToDelete, setCountryToDelete] = React.useState<CountryReadDTO | null>(null);
+  const [staffToEdit, setStaffToEdit] = React.useState<StaffMemberReadDTO | null>(null);
+  const [staffToDelete, setStaffToDelete] = React.useState<StaffMemberReadDTO | null>(null);
 
   const skip = pageIndex * pageSize;
   
@@ -215,39 +208,40 @@ export default function CountryTableClient() {
       skip: skip.toString(),
     });
     if (debouncedSearch) params.set("search", debouncedSearch);
-    return `/api/backend/api/v1/country/?${params.toString()}`;
-  }, [pageSize, skip, debouncedSearch]);
+    if (roleFilter !== "ALL") params.set("role_type", roleFilter);
+    return `/api/backend/api/v1/staff-member/?${params.toString()}`;
+  }, [pageSize, skip, debouncedSearch, roleFilter]);
 
-  const { data, error, isLoading, mutate, isValidating } = useSWR<CountryReadDTO[]>(
+  const { data, error, isLoading, mutate, isValidating } = useSWR<StaffMemberReadDTO[]>(
     queryUrl,
     fetcher,
     { keepPreviousData: true as any }
   );
 
-  const countries = data ?? [];
+  const staffList = data ?? [];
   const canPrev = pageIndex > 0;
-  const canNext = countries.length === pageSize; 
+  const canNext = staffList.length === pageSize; 
 
   const confirmDelete = async () => {
-    if (!countryToDelete) return;
+    if (!staffToDelete) return;
     try {
-      await apiCall(`/api/backend/api/v1/country/${countryToDelete.alpha_2_code}`, "DELETE");
-      toast.success("Country deleted successfully");
+      await apiCall(`/api/backend/api/v1/staff-member/${staffToDelete.id}`, "DELETE");
+      toast.success("Staff member deleted successfully");
       mutate();
     } catch (err: any) {
-      toast.error(err.message || "Failed to delete country");
+      toast.error(err.message || "Failed to delete staff member");
     } finally {
-      setCountryToDelete(null);
+      setStaffToDelete(null);
     }
   };
 
   const openCreateForm = () => {
-    setCountryToEdit(null);
+    setStaffToEdit(null);
     setFormModalOpen(true);
   };
 
-  const openEditForm = (country: CountryReadDTO) => {
-    setCountryToEdit(country);
+  const openEditForm = (staff: StaffMemberReadDTO) => {
+    setStaffToEdit(staff);
     setFormModalOpen(true);
   };
 
@@ -270,7 +264,7 @@ export default function CountryTableClient() {
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search country..."
+              placeholder="Search staff..."
               className="pl-8"
               value={searchTerm}
               onChange={(e) => {
@@ -279,12 +273,35 @@ export default function CountryTableClient() {
               }}
             />
           </div>
+
+          <Select 
+            value={roleFilter} 
+            onValueChange={(val) => {
+                setRoleFilter(val);
+                setPageIndex(0);
+            }}
+          >
+            <SelectTrigger className="w-45">
+              <SelectValue placeholder="Role" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Roles</SelectItem>
+              <SelectItem value="head_coach">Head Coach</SelectItem>
+              <SelectItem value="assistant">Assistant</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {(searchTerm || roleFilter !== "ALL") && (
+            <Button variant="ghost" size="icon" onClick={() => { setSearchTerm(""); setRoleFilter("ALL"); setPageIndex(0); }}>
+              <FilterX className="h-4 w-4" />
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
           <Button onClick={openCreateForm} className="gap-2">
             <Plus className="h-4 w-4" />
-            Add Country
+            Add Staff
           </Button>
 
           <div className="flex items-center gap-2">
@@ -304,40 +321,36 @@ export default function CountryTableClient() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-25 text-center">Code</TableHead>
-              <TableHead>Country Name</TableHead>
-              <TableHead className="text-right">Coordinates (Lat, Lng)</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead className="text-center">Nat.</TableHead>
               <TableHead className="text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && countries.length === 0 ? (
+            {isLoading && staffList.length === 0 ? (
               <TableRow><TableCell colSpan={4} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
-            ) : countries.length === 0 ? (
-              <TableRow><TableCell colSpan={4} className="h-24 text-center text-muted-foreground">No countries found.</TableCell></TableRow>
+            ) : staffList.length === 0 ? (
+              <TableRow><TableCell colSpan={4} className="h-24 text-center text-muted-foreground">No staff members found.</TableCell></TableRow>
             ) : (
-              countries.map((c) => (
-                  <TableRow key={c.alpha_2_code}>
-                    <TableCell className="text-center">
-                      <Badge variant="outline" className="font-mono uppercase text-sm">
-                        {c.alpha_2_code}
+              staffList.map((s) => (
+                  <TableRow key={s.id}>
+                    <TableCell className="font-medium">
+                      {s.first_name} {s.last_name}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={s.role_type === "head_coach" ? "default" : "secondary"} className="font-normal">
+                        {formatRole(s.role_type)}
                       </Badge>
                     </TableCell>
-                    <TableCell className="font-medium text-base">
-                      {c.name}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2 text-sm text-muted-foreground">
-                        <Globe2 className="h-4 w-4" />
-                        <span className="tabular-nums">{c.latitude.toFixed(4)}, {c.longitude.toFixed(4)}</span>
-                      </div>
-                    </TableCell>
+                    <TableCell className="text-center font-mono uppercase">{s.nationality_code}</TableCell>
+                    
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => openEditForm(c)} title="Edit">
+                        <Button variant="ghost" size="icon" onClick={() => openEditForm(s)} title="Edit">
                           <Pencil className="h-4 w-4 text-muted-foreground" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => setCountryToDelete(c)} title="Delete">
+                        <Button variant="ghost" size="icon" onClick={() => setStaffToDelete(s)} title="Delete">
                           <Trash2 className="h-4 w-4 text-destructive opacity-80 hover:opacity-100" />
                         </Button>
                       </div>
@@ -351,20 +364,20 @@ export default function CountryTableClient() {
 
       {/* 3. MODALS */}
       {formModalOpen && (
-        <CountryFormDialog 
+        <StaffFormDialog 
           isOpen={formModalOpen} 
           onClose={() => setFormModalOpen(false)} 
-          country={countryToEdit} 
+          staff={staffToEdit} 
           onSuccess={() => mutate()} 
         />
       )}
 
-      <AlertDialog open={!!countryToDelete} onOpenChange={(open) => !open && setCountryToDelete(null)}>
+      <AlertDialog open={!!staffToDelete} onOpenChange={(open) => !open && setStaffToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete <strong>{countryToDelete?.name}</strong>. If this country is linked to any players or teams, the deletion might fail or cause data issues.
+              This will permanently delete the staff member <strong>{staffToDelete?.first_name} {staffToDelete?.last_name}</strong>. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

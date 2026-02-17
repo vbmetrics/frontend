@@ -23,12 +23,6 @@ function toTitle(label: string) {
     .join(" ");
 }
 
-/**
- * Shadcn breadcrumb with auto-build from path.
- * - `items`: opcjonalnie nadpisuje auto-crumbs
- * - `rootLabel`/`rootHref`: etykieta i URL dla korzenia (domyślnie Dashboard)
- * - `maxCrumbs`: jeśli ścieżka dłuższa, zwinie środek do ellipsis
- */
 export function AppBreadcrumbs({
   items,
   rootLabel = "Dashboard",
@@ -47,11 +41,8 @@ export function AppBreadcrumbs({
     if (!pathname) return [{ label: rootLabel, href: rootHref }];
 
     const segments = pathname.split("/").filter(Boolean);
-
-    // Zawsze zaczynamy od korzenia (Dashboard)
     const base: Crumb[] = [{ label: rootLabel, href: rootHref }];
 
-    // /dashboard -> tylko root
     if (segments.length === 1 && `/${segments[0]}` === rootHref) return base;
 
     let acc = "";
@@ -61,25 +52,27 @@ export function AppBreadcrumbs({
       return { label: toTitle(seg), href: isLast ? undefined : acc };
     });
 
-    // Jeśli pierwszy segment nie jest równy rootHref, dodaj korzeń na start
     const startsAtRoot = `/${segments[0]}` === rootHref;
     return startsAtRoot ? rest : [...base, ...rest];
   }, [items, pathname, rootHref, rootLabel]);
 
-  // Collapsing (ellipsis) gdy za dużo segmentów
   let renderItems = autoItems;
   const needsEllipsis = autoItems.length > maxCrumbs;
   if (needsEllipsis) {
-    // zachowaj: pierwszy, przedostatni, ostatni; resztę zwiń
     const first = autoItems[0];
     const lastTwo = autoItems.slice(-2);
     renderItems = [first, { label: "…" }, ...lastTwo];
   }
 
+  // KLUCZOWA ZMIANA: Filtrujemy elementy przed renderowaniem
+  const finalItemsToRender = renderItems.filter(
+    (c, i) => !(i === 0 && c.href === rootHref)
+  );
+
   return (
     <Breadcrumb>
       <BreadcrumbList>
-        {/* Ikona Home/Root */}
+        {/* Zawsze pokazujemy twardo zakodowany Root */}
         <BreadcrumbItem>
           <BreadcrumbLink asChild href={rootHref} aria-label={`Go to ${rootLabel}`}>
             <Link href={rootHref} className="inline-flex items-center gap-1">
@@ -89,42 +82,39 @@ export function AppBreadcrumbs({
           </BreadcrumbLink>
         </BreadcrumbItem>
 
-        {/* Separator po root */}
-        {renderItems.length > 0 && <BreadcrumbSeparator />}
+        {/* Separator pojawia się tylko wtedy, gdy MAMY jakieś elementy POZA rootem */}
+        {finalItemsToRender.length > 0 && <BreadcrumbSeparator />}
 
-        {renderItems
-          // nie dubluj root, jeśli już pokazaliśmy go wyżej
-          .filter((c, i) => !(i === 0 && c.href === rootHref))
-          .map((crumb, i, arr) => {
-            const isLast = i === arr.length - 1;
-            const isEllipsis = crumb.label === "…";
+        {finalItemsToRender.map((crumb, i, arr) => {
+          const isLast = i === arr.length - 1;
+          const isEllipsis = crumb.label === "…";
 
-            if (isEllipsis) {
-              return (
-                <React.Fragment key={`ellipsis-${i}`}>
-                  <BreadcrumbItem>
-                    <BreadcrumbEllipsis />
-                  </BreadcrumbItem>
-                  <BreadcrumbSeparator />
-                </React.Fragment>
-              );
-            }
-
+          if (isEllipsis) {
             return (
-              <React.Fragment key={`${crumb.label}-${i}`}>
+              <React.Fragment key={`ellipsis-${i}`}>
                 <BreadcrumbItem>
-                  {isLast || !crumb.href ? (
-                    <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
-                  ) : (
-                    <BreadcrumbLink asChild>
-                      <Link href={crumb.href}>{crumb.label}</Link>
-                    </BreadcrumbLink>
-                  )}
+                  <BreadcrumbEllipsis />
                 </BreadcrumbItem>
-                {!isLast && <BreadcrumbSeparator />}
+                <BreadcrumbSeparator />
               </React.Fragment>
             );
-          })}
+          }
+
+          return (
+            <React.Fragment key={`${crumb.label}-${i}`}>
+              <BreadcrumbItem>
+                {isLast || !crumb.href ? (
+                  <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
+                ) : (
+                  <BreadcrumbLink asChild>
+                    <Link href={crumb.href}>{crumb.label}</Link>
+                  </BreadcrumbLink>
+                )}
+              </BreadcrumbItem>
+              {!isLast && <BreadcrumbSeparator />}
+            </React.Fragment>
+          );
+        })}
       </BreadcrumbList>
     </Breadcrumb>
   );

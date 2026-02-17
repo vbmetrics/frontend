@@ -16,6 +16,7 @@ import {
   ShieldAlert, 
   Zap 
 } from "lucide-react";
+import { PageHeader } from "@/components/app/PageHeader";
 
 // Przykładowe dane (Mock Data) - w przyszłości pobierane z API
 const MATCHES_DATA = [
@@ -72,12 +73,11 @@ const MATCHES_DATA = [
 export default function MatchesPage() {
   return (
     <div className="space-y-6">
-      <div className="flex flex-col space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Recent Matches</h1>
-        <p className="text-muted-foreground">
-          Overview of the latest games with key performance indicators.
-        </p>
-      </div>
+      <PageHeader
+        title="Recent Matches"
+        description="Overview of the latest games with key performance indicators."
+        breadcrumbs={[{ label: "Matches" }]}
+      />
 
       <div className="grid gap-6">
         {MATCHES_DATA.map((match) => (

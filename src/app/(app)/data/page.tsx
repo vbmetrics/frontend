@@ -17,6 +17,7 @@ import {
   Briefcase,
   ArrowRight,
 } from "lucide-react";
+import { PageHeader } from "@/components/app/PageHeader";
 
 // Konfiguracja sekcji - łatwo dodać nowe w przyszłości
 const DATA_SECTIONS = [
@@ -51,30 +52,33 @@ const DATA_SECTIONS = [
     description: "Player profiles, physical attributes, and positions.",
   },
   {
+    title: "Player Team History",
+    href: "/data/player-team-history",
+    icon: History,
+    description: "Track player transfers and historical team affiliations.",
+  },
+  {
     title: "Staff Members",
     href: "/data/staff-members",
     icon: Briefcase,
     description: "Coaches, physiotherapists, and support staff.",
   },
   {
-    title: "Player Team History",
-    href: "/data/player-team-history",
+    title: "Staff Team History",
+    href: "/data/staff-team-history",
     icon: History,
-    description: "Track player transfers and historical team affiliations.",
+    description: "Track staff member transfers and historical team affiliations.",
   },
 ];
 
 export default function ManageDataPage() {
   return (
     <div className="space-y-6">
-      {/* Nagłówek strony */}
-      <div className="flex flex-col space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Manage Data</h1>
-        <p className="text-muted-foreground">
-          Select a category below to view, edit, or add new records to the
-          database.
-        </p>
-      </div>
+      <PageHeader
+        title="Manage Data"
+        description="Select a category below to view, edit, or add new records to the database."
+        breadcrumbs={[{ label: "Data" }]}
+      />
 
       {/* Grid z kartami */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

@@ -49,7 +49,7 @@ export default async function AccountPage() {
       <PageHeader
         title="Account settings"
         description="Manage your profile, appearance, and language."
-        breadcrumbs={[{ label: "Settings", href: "/settings" }, { label: "Account" }]}
+        breadcrumbs={[{ label: "Account" }]}
       />
 
       {/* Profile */}

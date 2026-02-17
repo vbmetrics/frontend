@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   Home,
-  Settings,
   BarChart3,
   Users,
   Database,
@@ -39,8 +38,7 @@ const itemsApp = [
   { title: "Scouting",    url: "/scouting",     icon: ClipboardList },
   { title: "Players",     url: "/players",      icon: Users },
   { title: "Data",        url: "/data",         icon: Database },
-  { title: "Integration", url: "/integrations", icon: PlugZap },
-  { title: "Settings",    url: "/settings",     icon: Settings },
+  { title: "Integration", url: "/integration", icon: PlugZap },
 ];
 
 const itemsHelp = [

@@ -1,6 +1,7 @@
 // server component
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/app/PageHeader";
 
 const ITEMS = [
   {
@@ -26,11 +27,12 @@ const ITEMS = [
 
 export default function ChangelogPage() {
   return (
-    <div className="space-y-6 p-6">
-      <header>
-        <h1 className="text-3xl font-bold">Changelog</h1>
-        <p className="text-muted-foreground mt-1">What’s new in vbmetrics.</p>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        title="Changelog"
+        description="What’s new in vbmetrics."
+        breadcrumbs={[{ label: "Changelog" }]}
+      />
 
       <div className="space-y-4">
         {ITEMS.map((it) => (

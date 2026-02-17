@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import useSWR from "swr";
-import { Search, Plus, Pencil, Trash2, Loader2, Globe2 } from "lucide-react";
+import { Search, FilterX, Plus, Pencil, Trash2, Loader2, Calendar } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -38,11 +45,14 @@ import {
 
 // --- TYPES ---
 
-export interface CountryReadDTO {
+export type SeasonType = "club" | "national";
+
+export interface SeasonReadDTO {
+  id: string;
   name: string;
-  alpha_2_code: string;
-  latitude: number;
-  longitude: number;
+  season_type: SeasonType;
+  start_date: string;
+  end_date: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -52,7 +62,7 @@ export interface CountryReadDTO {
 const fetcher = async (url: string) => {
   const r = await fetch(url, { cache: "no-store", credentials: "include" });
   if (!r.ok) throw new Error("Failed to fetch data");
-  return (await r.json()) as CountryReadDTO[];
+  return (await r.json()) as SeasonReadDTO[];
 };
 
 async function apiCall(url: string, method: string, body?: any) {
@@ -77,42 +87,41 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-// --- COMPONENT: COUNTRY FORM (CREATE / UPDATE) ---
+// --- COMPONENT: SEASON FORM (CREATE / UPDATE) ---
 
-function CountryFormDialog({
+function SeasonFormDialog({
   isOpen,
   onClose,
-  country,
+  season,
   onSuccess,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  country: CountryReadDTO | null;
+  season: SeasonReadDTO | null;
   onSuccess: () => void;
 }) {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [startDate, setStartDate] = React.useState(season?.start_date || "");
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
     
     const formData = new FormData(e.currentTarget);
-    const data: Record<string, any> = {
+    const data = {
       name: formData.get("name") as string,
-      latitude: Number(formData.get("latitude")),
-      longitude: Number(formData.get("longitude")),
+      season_type: formData.get("season_type") as SeasonType,
+      start_date: formData.get("start_date") as string,
+      end_date: formData.get("end_date") as string,
     };
 
     try {
-      if (country) {
-        // Update (alpha_2_code is NOT sent in PATCH body per CountryUpdateDTO)
-        await apiCall(`/api/backend/api/v1/country/${country.alpha_2_code}`, "PATCH", data);
-        toast.success("Country updated successfully");
+      if (season) {
+        await apiCall(`/api/backend/api/v1/season/${season.id}`, "PATCH", data);
+        toast.success("Season updated successfully");
       } else {
-        // Create (alpha_2_code IS required)
-        data.alpha_2_code = (formData.get("alpha_2_code") as string).toUpperCase();
-        await apiCall(`/api/backend/api/v1/country/`, "POST", data);
-        toast.success("Country created successfully");
+        await apiCall(`/api/backend/api/v1/season/`, "POST", data);
+        toast.success("Season created successfully");
       }
       onSuccess();
       onClose();
@@ -127,55 +136,51 @@ function CountryFormDialog({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-106.25">
         <DialogHeader>
-          <DialogTitle>{country ? "Edit Country" : "Add New Country"}</DialogTitle>
+          <DialogTitle>{season ? "Edit Season" : "Add New Season"}</DialogTitle>
           <DialogDescription>
-            {country ? "Update geographical details." : "Add a new country to the database."}
+            {season ? "Update the details for this season." : "Define a new season time frame."}
           </DialogDescription>
         </DialogHeader>
 
-        <form id="country-form" onSubmit={handleSubmit} className="space-y-4 py-4">
+        <form id="season-form" onSubmit={handleSubmit} className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="alpha_2_code">Country Code (ISO 2) <span className="text-red-500">*</span></Label>
-            <Input 
-              id="alpha_2_code" 
-              name="alpha_2_code" 
-              placeholder="e.g. PL, US, IT" 
-              minLength={2} 
-              maxLength={2} 
-              defaultValue={country?.alpha_2_code} 
-              disabled={!!country} // ZABLOKOWANE podczas edycji (Primary Key)
-              required 
-            />
-            {!!country && <p className="text-xs text-muted-foreground">Country code cannot be changed.</p>}
+            <Label htmlFor="name">Season Name <span className="text-red-500">*</span></Label>
+            <Input id="name" name="name" placeholder="e.g. 2024/2025" defaultValue={season?.name} required />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="name">Country Name <span className="text-red-500">*</span></Label>
-            <Input id="name" name="name" placeholder="e.g. Poland" defaultValue={country?.name} required />
+            <Label htmlFor="season_type">Type <span className="text-red-500">*</span></Label>
+            <Select name="season_type" defaultValue={season?.season_type || "club"} required>
+              <SelectTrigger>
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="club">Club</SelectItem>
+                <SelectItem value="national">National</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="latitude">Latitude <span className="text-red-500">*</span></Label>
+              <Label htmlFor="start_date">Start Date <span className="text-red-500">*</span></Label>
               <Input 
-                id="latitude" 
-                name="latitude" 
-                type="number" 
-                step="any" // Pozwala na ułamki
-                placeholder="52.23" 
-                defaultValue={country?.latitude} 
+                id="start_date" 
+                name="start_date" 
+                type="date" 
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
                 required 
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="longitude">Longitude <span className="text-red-500">*</span></Label>
+              <Label htmlFor="end_date">End Date <span className="text-red-500">*</span></Label>
               <Input 
-                id="longitude" 
-                name="longitude" 
-                type="number" 
-                step="any"
-                placeholder="21.01" 
-                defaultValue={country?.longitude} 
+                id="end_date" 
+                name="end_date" 
+                type="date" 
+                min={startDate} // Frontend validation - prevents selecting a date before start_date
+                defaultValue={season?.end_date} 
                 required 
               />
             </div>
@@ -184,9 +189,9 @@ function CountryFormDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isSubmitting}>Cancel</Button>
-          <Button type="submit" form="country-form" disabled={isSubmitting}>
+          <Button type="submit" form="season-form" disabled={isSubmitting}>
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            {country ? "Save Changes" : "Create Country"}
+            {season ? "Save Changes" : "Create Season"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -196,16 +201,17 @@ function CountryFormDialog({
 
 // --- MAIN TABLE COMPONENT ---
 
-export default function CountryTableClient() {
+export default function SeasonTableClient() {
   const [pageSize] = React.useState<number>(10);
   const [pageIndex, setPageIndex] = React.useState<number>(0);
   
   const [searchTerm, setSearchTerm] = React.useState("");
   const debouncedSearch = useDebounce(searchTerm, 500);
+  const [typeFilter, setTypeFilter] = React.useState<string>("ALL");
 
   const [formModalOpen, setFormModalOpen] = React.useState(false);
-  const [countryToEdit, setCountryToEdit] = React.useState<CountryReadDTO | null>(null);
-  const [countryToDelete, setCountryToDelete] = React.useState<CountryReadDTO | null>(null);
+  const [seasonToEdit, setSeasonToEdit] = React.useState<SeasonReadDTO | null>(null);
+  const [seasonToDelete, setSeasonToDelete] = React.useState<SeasonReadDTO | null>(null);
 
   const skip = pageIndex * pageSize;
   
@@ -215,39 +221,40 @@ export default function CountryTableClient() {
       skip: skip.toString(),
     });
     if (debouncedSearch) params.set("search", debouncedSearch);
-    return `/api/backend/api/v1/country/?${params.toString()}`;
-  }, [pageSize, skip, debouncedSearch]);
+    if (typeFilter !== "ALL") params.set("season_type", typeFilter);
+    return `/api/backend/api/v1/season/?${params.toString()}`;
+  }, [pageSize, skip, debouncedSearch, typeFilter]);
 
-  const { data, error, isLoading, mutate, isValidating } = useSWR<CountryReadDTO[]>(
+  const { data, error, isLoading, mutate, isValidating } = useSWR<SeasonReadDTO[]>(
     queryUrl,
     fetcher,
     { keepPreviousData: true as any }
   );
 
-  const countries = data ?? [];
+  const seasons = data ?? [];
   const canPrev = pageIndex > 0;
-  const canNext = countries.length === pageSize; 
+  const canNext = seasons.length === pageSize; 
 
   const confirmDelete = async () => {
-    if (!countryToDelete) return;
+    if (!seasonToDelete) return;
     try {
-      await apiCall(`/api/backend/api/v1/country/${countryToDelete.alpha_2_code}`, "DELETE");
-      toast.success("Country deleted successfully");
+      await apiCall(`/api/backend/api/v1/season/${seasonToDelete.id}`, "DELETE");
+      toast.success("Season deleted successfully");
       mutate();
     } catch (err: any) {
-      toast.error(err.message || "Failed to delete country");
+      toast.error(err.message || "Failed to delete season");
     } finally {
-      setCountryToDelete(null);
+      setSeasonToDelete(null);
     }
   };
 
   const openCreateForm = () => {
-    setCountryToEdit(null);
+    setSeasonToEdit(null);
     setFormModalOpen(true);
   };
 
-  const openEditForm = (country: CountryReadDTO) => {
-    setCountryToEdit(country);
+  const openEditForm = (season: SeasonReadDTO) => {
+    setSeasonToEdit(season);
     setFormModalOpen(true);
   };
 
@@ -270,7 +277,7 @@ export default function CountryTableClient() {
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search country..."
+              placeholder="Search season name..."
               className="pl-8"
               value={searchTerm}
               onChange={(e) => {
@@ -279,12 +286,35 @@ export default function CountryTableClient() {
               }}
             />
           </div>
+
+          <Select 
+            value={typeFilter} 
+            onValueChange={(val) => {
+                setTypeFilter(val);
+                setPageIndex(0);
+            }}
+          >
+            <SelectTrigger className="w-37.5">
+              <SelectValue placeholder="Season Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Types</SelectItem>
+              <SelectItem value="club">Club</SelectItem>
+              <SelectItem value="national">National</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {(searchTerm || typeFilter !== "ALL") && (
+            <Button variant="ghost" size="icon" onClick={() => { setSearchTerm(""); setTypeFilter("ALL"); setPageIndex(0); }}>
+              <FilterX className="h-4 w-4" />
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
           <Button onClick={openCreateForm} className="gap-2">
             <Plus className="h-4 w-4" />
-            Add Country
+            Add Season
           </Button>
 
           <div className="flex items-center gap-2">
@@ -304,40 +334,42 @@ export default function CountryTableClient() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-25 text-center">Code</TableHead>
-              <TableHead>Country Name</TableHead>
-              <TableHead className="text-right">Coordinates (Lat, Lng)</TableHead>
+              <TableHead className="w-62.5">Season Name</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Time Frame</TableHead>
               <TableHead className="text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && countries.length === 0 ? (
+            {isLoading && seasons.length === 0 ? (
               <TableRow><TableCell colSpan={4} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
-            ) : countries.length === 0 ? (
-              <TableRow><TableCell colSpan={4} className="h-24 text-center text-muted-foreground">No countries found.</TableCell></TableRow>
+            ) : seasons.length === 0 ? (
+              <TableRow><TableCell colSpan={4} className="h-24 text-center text-muted-foreground">No seasons found.</TableCell></TableRow>
             ) : (
-              countries.map((c) => (
-                  <TableRow key={c.alpha_2_code}>
-                    <TableCell className="text-center">
-                      <Badge variant="outline" className="font-mono uppercase text-sm">
-                        {c.alpha_2_code}
+              seasons.map((s) => (
+                  <TableRow key={s.id}>
+                    <TableCell className="font-medium text-base">
+                      {s.name}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={s.season_type === "national" ? "default" : "outline"} className="capitalize">
+                        {s.season_type}
                       </Badge>
                     </TableCell>
-                    <TableCell className="font-medium text-base">
-                      {c.name}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2 text-sm text-muted-foreground">
-                        <Globe2 className="h-4 w-4" />
-                        <span className="tabular-nums">{c.latitude.toFixed(4)}, {c.longitude.toFixed(4)}</span>
+                    <TableCell>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Calendar className="h-4 w-4" />
+                        <span className="tabular-nums">{s.start_date}</span>
+                        <span>&rarr;</span>
+                        <span className="tabular-nums">{s.end_date}</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => openEditForm(c)} title="Edit">
+                        <Button variant="ghost" size="icon" onClick={() => openEditForm(s)} title="Edit">
                           <Pencil className="h-4 w-4 text-muted-foreground" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => setCountryToDelete(c)} title="Delete">
+                        <Button variant="ghost" size="icon" onClick={() => setSeasonToDelete(s)} title="Delete">
                           <Trash2 className="h-4 w-4 text-destructive opacity-80 hover:opacity-100" />
                         </Button>
                       </div>
@@ -351,20 +383,20 @@ export default function CountryTableClient() {
 
       {/* 3. MODALS */}
       {formModalOpen && (
-        <CountryFormDialog 
+        <SeasonFormDialog 
           isOpen={formModalOpen} 
           onClose={() => setFormModalOpen(false)} 
-          country={countryToEdit} 
+          season={seasonToEdit} 
           onSuccess={() => mutate()} 
         />
       )}
 
-      <AlertDialog open={!!countryToDelete} onOpenChange={(open) => !open && setCountryToDelete(null)}>
+      <AlertDialog open={!!seasonToDelete} onOpenChange={(open) => !open && setSeasonToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete <strong>{countryToDelete?.name}</strong>. If this country is linked to any players or teams, the deletion might fail or cause data issues.
+              This will permanently delete the <strong>{seasonToDelete?.name}</strong> season. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

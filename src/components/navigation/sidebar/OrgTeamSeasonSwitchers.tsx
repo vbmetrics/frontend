@@ -1,14 +1,16 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { ChevronDown, UsersRound, CalendarDays, Building2 } from "lucide-react";
+import useSWR from "swr";
+import { ChevronDown, UsersRound, CalendarDays, Loader2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -19,27 +21,20 @@ import {
 } from "@/components/ui/tooltip";
 import { useSidebar } from "@/components/ui/sidebar";
 
-/** TODO: Replace with SWR calls to your backend when ready */
+// --- IMPORTY STORE & TYPES ---
+import { useSeasonStore } from "@/stores/useSeasonStore";
+import { SeasonReadDTO } from "@/types/season";
+
+import { useTeamStore } from "@/stores/useTeamStore"; // <--- NOWY STORE
+import { TeamReadDTO } from "@/types/team";          // <--- NOWY TYP
+
+// --- MOCK FOR ORG (Zostawiamy na później) ---
 const MOCK_ORGS = [
   { id: "org-1", name: "VBM Analytics" },
   { id: "org-2", name: "Volley Club Warsaw" },
 ];
-const MOCK_TEAMS: Record<string, { id: string; name: string }[]> = {
-  "org-1": [
-    { id: "t-1", name: "VBM A" },
-    { id: "t-2", name: "VBM Youth" },
-  ],
-  "org-2": [
-    { id: "t-3", name: "Warsaw Seniors" },
-    { id: "t-4", name: "Warsaw U19" },
-  ],
-};
-const MOCK_SEASONS = [
-  { id: "2023-24", name: "2023/24" },
-  { id: "2024-25", name: "2024/25" },
-  { id: "2025-26", name: "2025/26" },
-];
 
+// --- UTILS ---
 function useLocalStorage<T>(key: string, initial: T) {
   const [value, setValue] = React.useState<T>(initial);
   React.useEffect(() => {
@@ -57,143 +52,179 @@ function useLocalStorage<T>(key: string, initial: T) {
   return [value, setValue] as const;
 }
 
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
 export function OrgTeamSeasonSwitchers() {
-  const { state } = useSidebar(); // "expanded" | "collapsed"
+  const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
+  // --- ORG STATE (Mock) ---
   const [orgId, setOrgId] = useLocalStorage<string>("ctx.orgId", MOCK_ORGS[0].id);
-  const [teamId, setTeamId] = useLocalStorage<string | null>("ctx.teamId", null);
-  const [seasonIds, setSeasonIds] = useLocalStorage<string[]>("ctx.seasonIds", []);
-
   const org = MOCK_ORGS.find((o) => o.id === orgId) ?? MOCK_ORGS[0];
-  const teams = MOCK_TEAMS[org.id] ?? [];
-  const team = teams.find((t) => t.id === teamId) ?? null;
 
-  function selectOrg(id: string) {
-    setOrgId(id);
-    setTeamId(null);
-    setSeasonIds([]);
-  }
-  function toggleSeason(id: string) {
-    setSeasonIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  }
+  // --- TEAM STATE (Real Backend + Zustand) ---
+  const { selectedTeam, setSelectedTeam, clearSelectedTeam } = useTeamStore();
+  
+  // Pobieranie zespołów z API
+  const { data: teamsData, isLoading: teamsLoading } = useSWR<TeamReadDTO[]>(
+    "/api/backend/api/v1/team/?limit=100", 
+    fetcher
+  );
+  const teamsList = teamsData || [];
 
-  const seasonsLabel =
-    seasonIds.length === 0
-      ? "All seasons"
-      : seasonIds.length === 1
-      ? MOCK_SEASONS.find((s) => s.id === seasonIds[0])?.name ?? "1 season"
-      : `${seasonIds.length} seasons`;
+  // --- SEASONS STATE (Real Backend + Zustand) ---
+  const { selectedSeasonIds, toggleSeason, clearSeasons } = useSeasonStore();
+  const { data: seasonsData, isLoading: seasonsLoading } = useSWR<SeasonReadDTO[]>(
+    "/api/backend/api/v1/season/?limit=100", 
+    fetcher
+  );
+  const seasonsList = seasonsData || [];
 
+  // --- HELPERS FOR LABELS ---
+  
+  const seasonsLabel = React.useMemo(() => {
+    if (seasonsLoading) return "Loading...";
+    if (selectedSeasonIds.length === 0) return "All seasons";
+    if (selectedSeasonIds.length === 1) {
+      return seasonsList.find((s) => s.id === selectedSeasonIds[0])?.name ?? "1 season";
+    }
+    return `${selectedSeasonIds.length} seasons`;
+  }, [seasonsLoading, selectedSeasonIds, seasonsList]);
+
+  const teamLabel = selectedTeam ? selectedTeam.name : "Select team";
+
+  // --- RENDER MENUS ---
+
+  const renderTeamsMenu = () => (
+    <>
+      <DropdownMenuLabel>Select Main Team</DropdownMenuLabel>
+      <DropdownMenuSeparator />
+      
+      {teamsLoading && (
+        <div className="flex items-center justify-center p-4">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        </div>
+      )}
+
+      {!teamsLoading && teamsList.length === 0 && (
+        <div className="p-2 text-xs text-muted-foreground">No teams found.</div>
+      )}
+
+      {/* Lista Zespołów (Single Select) */}
+      <div className="max-h-75 overflow-y-auto">
+        {teamsList.map((t) => {
+          const isSelected = selectedTeam?.id === t.id;
+          return (
+            <DropdownMenuItem
+              key={t.id}
+              onClick={() => setSelectedTeam(t)}
+              className="justify-between cursor-pointer"
+            >
+              <span>{t.name}</span>
+              {isSelected && <Check className="h-4 w-4 text-primary" />}
+            </DropdownMenuItem>
+          );
+        })}
+      </div>
+
+      {selectedTeam && (
+        <>
+           <DropdownMenuSeparator />
+           <DropdownMenuItem onClick={clearSelectedTeam} className="text-xs justify-center text-muted-foreground">
+             Clear selection
+           </DropdownMenuItem>
+        </>
+      )}
+    </>
+  );
+
+  const renderSeasonsMenu = () => (
+    <>
+      <DropdownMenuLabel>Filter Seasons</DropdownMenuLabel>
+      <DropdownMenuSeparator />
+      
+      {seasonsLoading && (
+        <div className="flex items-center justify-center p-4">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        </div>
+      )}
+
+      <div className="max-h-75 overflow-y-auto">
+        {seasonsList.map((s) => {
+            const checked = selectedSeasonIds.includes(s.id);
+            return (
+            <DropdownMenuItem
+                key={s.id}
+                onSelect={(e) => e.preventDefault()}
+                onClick={() => toggleSeason(s.id)}
+                className="justify-between cursor-pointer"
+            >
+                <span>{s.name}</span>
+                <Checkbox
+                checked={checked}
+                onCheckedChange={() => toggleSeason(s.id)}
+                />
+            </DropdownMenuItem>
+            );
+        })}
+      </div>
+      
+      {selectedSeasonIds.length > 0 && (
+        <>
+           <DropdownMenuSeparator />
+           <DropdownMenuItem onClick={clearSeasons} className="text-xs justify-center text-muted-foreground">
+             Clear filters
+           </DropdownMenuItem>
+        </>
+      )}
+    </>
+  );
+
+  // --- RENDER COMPONENT (COLLAPSED) ---
   if (collapsed) {
-    // COLLAPSED: stack three icon triggers vertically, open menus to the right
     return (
       <TooltipProvider delayDuration={150}>
-        <div className="px-1 pt-1 pb-2 flex flex-col items-center gap-2">
-          {/* Organization */}
+        <div className="px-1 pt-3 pb-2 flex flex-col items-center gap-2">
+          
+          {/* TEAM TRIGGER (Collapsed) */}
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 shrink-0"
-                    aria-label="Organization"
-                  >
-                    <Building2 className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent>Organization</TooltipContent>
-            </Tooltip>
-            <DropdownMenuContent side="right" align="start" sideOffset={8} className="w-56">
-              {MOCK_ORGS.map((o) => (
-                <DropdownMenuItem key={o.id} onClick={() => selectOrg(o.id)}>
-                  {o.name}
-                </DropdownMenuItem>
-              ))}
-              <div className="px-2 pt-2">
-                <Link
-                  href="/account/organizations"
-                  className="text-xs text-muted-foreground hover:underline"
-                >
-                  Manage organizations
-                </Link>
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Team */}
-          <DropdownMenu>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 shrink-0"
-                    aria-label="Team"
-                  >
+                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 relative">
                     <UsersRound className="h-4 w-4" />
+                    {selectedTeam && (
+                        <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-primary text-[8px] border border-sidebar-primary-foreground/10" />
+                    )}
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
-              <TooltipContent>Team</TooltipContent>
+              <TooltipContent side="right">Select Team</TooltipContent>
             </Tooltip>
             <DropdownMenuContent side="right" align="start" sideOffset={8} className="w-56">
-              {teams.map((t) => (
-                <DropdownMenuItem key={t.id} onClick={() => setTeamId(t.id)}>
-                  {t.name}
-                </DropdownMenuItem>
-              ))}
-              {teams.length === 0 && (
-                <div className="px-2 py-2 text-xs text-muted-foreground">
-                  No teams in this org.
-                </div>
-              )}
+              {renderTeamsMenu()}
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Seasons */}
+          {/* SEASONS TRIGGER (Collapsed) */}
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 shrink-0"
-                    aria-label="Seasons"
-                  >
+                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 relative">
                     <CalendarDays className="h-4 w-4" />
+                    {selectedSeasonIds.length > 0 && (
+                      <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-primary text-[8px] text-primary-foreground font-bold">
+                        {selectedSeasonIds.length}
+                      </span>
+                    )}
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
-              <TooltipContent>Seasons</TooltipContent>
+              <TooltipContent side="right">Filter Seasons</TooltipContent>
             </Tooltip>
             <DropdownMenuContent side="right" align="start" sideOffset={8} className="w-56">
-              {MOCK_SEASONS.map((s) => {
-                const checked = seasonIds.includes(s.id);
-                return (
-                  <DropdownMenuItem
-                    key={s.id}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      toggleSeason(s.id);
-                    }}
-                    className="justify-between"
-                  >
-                    <span>{s.name}</span>
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={() => toggleSeason(s.id)}
-                    />
-                  </DropdownMenuItem>
-                );
-              })}
+              {renderSeasonsMenu()}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -201,93 +232,39 @@ export function OrgTeamSeasonSwitchers() {
     );
   }
 
-  // EXPANDED: full labeled buttons
+  // --- RENDER COMPONENT (EXPANDED) ---
   return (
     <div className="px-2 pt-2 pb-2 space-y-2">
-      {/* Organization */}
+      
+      {/* TEAM SWITCHER */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="w-full justify-between">
-            <span className="inline-flex items-center gap-2">
-              <Building2 className="h-4 w-4" />
-              {org?.name || "Select organization"}
+          <Button variant="outline" className="w-full justify-between h-9 px-3">
+            <span className="inline-flex items-center gap-2 truncate">
+              <UsersRound className="h-4 w-4 text-muted-foreground" />
+              <span className="truncate">{teamLabel}</span>
             </span>
-            <ChevronDown className="h-4 w-4 opacity-70" />
+            <ChevronDown className="h-4 w-4 opacity-50" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-64">
-          {MOCK_ORGS.map((o) => (
-            <DropdownMenuItem key={o.id} onClick={() => selectOrg(o.id)}>
-              {o.name}
-            </DropdownMenuItem>
-          ))}
-          <div className="px-2 pt-2">
-            <Link
-              href="/account/organizations"
-              className="text-xs text-muted-foreground hover:underline"
-            >
-              Manage organizations
-            </Link>
-          </div>
+        <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] min-w-56">
+            {renderTeamsMenu()}
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Team */}
+      {/* SEASON SWITCHER */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="w-full justify-between">
-            <span className="inline-flex items-center gap-2">
-              <UsersRound className="h-4 w-4" />
-              {team?.name || "Select team"}
+          <Button variant="outline" className="w-full justify-between h-9 px-3">
+            <span className="inline-flex items-center gap-2 truncate">
+              <CalendarDays className="h-4 w-4 text-muted-foreground" />
+              <span className="truncate">{seasonsLabel}</span>
             </span>
-            <ChevronDown className="h-4 w-4 opacity-70" />
+            <ChevronDown className="h-4 w-4 opacity-50" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-64">
-          {teams.map((t) => (
-            <DropdownMenuItem key={t.id} onClick={() => setTeamId(t.id)}>
-              {t.name}
-            </DropdownMenuItem>
-          ))}
-          {teams.length === 0 && (
-            <div className="px-2 py-2 text-xs text-muted-foreground">
-              No teams in this org.
-            </div>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      {/* Seasons */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="w-full justify-between">
-            <span className="inline-flex items-center gap-2">
-              <CalendarDays className="h-4 w-4" />
-              {seasonIds.length === 0 ? "All seasons" : seasonsLabel}
-            </span>
-            <ChevronDown className="h-4 w-4 opacity-70" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-64">
-          {MOCK_SEASONS.map((s) => {
-            const checked = seasonIds.includes(s.id);
-            return (
-              <DropdownMenuItem
-                key={s.id}
-                onClick={(e) => {
-                  e.preventDefault();
-                  toggleSeason(s.id);
-                }}
-                className="justify-between"
-              >
-                <span>{s.name}</span>
-                <Checkbox
-                  checked={checked}
-                  onCheckedChange={() => toggleSeason(s.id)}
-                />
-              </DropdownMenuItem>
-            );
-          })}
+        <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] min-w-56">
+          {renderSeasonsMenu()}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

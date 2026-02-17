@@ -135,13 +135,6 @@ export function SidebarUser() {
               </DropdownMenuItem>
 
               <DropdownMenuItem asChild>
-                <Link href="/account/organizations">
-                  <BiBuildings />
-                  Organizations
-                </Link>
-              </DropdownMenuItem>
-
-              <DropdownMenuItem asChild>
                 <Link href="/account/billing">
                   <BiCreditCardFront />
                   Billing

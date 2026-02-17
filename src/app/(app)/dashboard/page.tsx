@@ -69,7 +69,7 @@ export default function DashboardPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[110px]">Date</TableHead>
+                  <TableHead className="w-27.5">Date</TableHead>
                   <TableHead>Opponent</TableHead>
                   <TableHead>Competition</TableHead>
                   <TableHead className="text-right">Result</TableHead>

@@ -1,12 +1,16 @@
 import { StartMatchForm } from "@/components/live/StartMatchForm";
+import { PageHeader } from "@/components/app/PageHeader";
 
 export default function LivePage() {
   return (
-    <div className="w-full">
-      <h1 className="ml-12 mb-6 text-3xl font-bold">Live Mode</h1>
-      <div className="ml-12 max-w-4xl">
-        <StartMatchForm />
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Live Mode"
+        description="Start a live mode session to save match data."
+        breadcrumbs={[{ label: "Live Mode" }]}
+      />
+
+      <StartMatchForm />
     </div>
   );
 }

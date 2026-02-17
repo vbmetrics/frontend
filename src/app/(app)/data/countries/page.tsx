@@ -1,10 +1,15 @@
-// src/app/(app)/data/countries/page.tsx
-import CountryTableClient from "@/components/api/CountryTable.client"; // to jest "use client" komponent
+import CountryTableClient from "@/components/api/CountryTable.client";
+import { PageHeader } from "@/components/app/PageHeader";
 
 export default function CountriesPage() {
   return (
-    <main className="p-4 md:p-6 space-y-4">
-      <h1 className="text-2xl font-semibold">Countries</h1>
+    <main className="space-y-6">
+      <PageHeader
+        title="Countries"
+        description="Manage countries and their details."
+        breadcrumbs={[{ label: "Data", href: "/data" }, { label: "Countries" }]}
+      />
+      
       <CountryTableClient />
     </main>
   );
