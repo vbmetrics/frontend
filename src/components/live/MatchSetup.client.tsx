@@ -107,21 +107,10 @@ export default function MatchSetupClient({ match }: { match: any }) {
 
     setIsSubmitting(true);
     try {
-      // KROK 1: Tworzymy Seta nr 1
-      const setPayload = {
-        set_number: 1,
-        match_id: match.id,
-        home_team_score: 0,
-        away_team_score: 0,
-      };
-      const createdSet = await apiCall("/api/backend/api/v1/set/", "POST", setPayload);
-
-      // KROK 2: Tworzymy Lineup 
       const lineupPayload = {
-        set_id: createdSet.id,
         home: { 
           team_id: match.home_team_id, 
-          positions: homeLineup.positions,
+          positions: homeLineup.positions, // {P1: uuid, ...}
           libero_id: homeLineup.libero_id || null
         },
         away: { 
@@ -131,8 +120,9 @@ export default function MatchSetupClient({ match }: { match: any }) {
         },
         starting_server: startingServer,
       };
-      
-      await apiCall(`/api/backend/api/v1/lineup/set/${createdSet.id}/bulk`, "POST", lineupPayload);
+
+      // Uderzamy w nowy endpoint match_flow
+      await apiCall(`/api/backend/api/v1/match/${match.id}/lineup`, "POST", lineupPayload);
 
       toast.success("Match started! Redirecting to coding...");
       router.push(`/live/${match.id}/coding`);

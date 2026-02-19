@@ -1,32 +1,15 @@
 "use client";
 
-import * as React from "react"
+import * as React from "react";
 import {
   ColumnDef,
-  ColumnFiltersState,
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  SortingState,
   useReactTable,
-  VisibilityState,
-} from "@tanstack/react-table"
-import { ArrowUpDown, ChevronDown, MoreHorizontal } from "lucide-react"
+} from "@tanstack/react-table";
+import { Copy, PenLine, Sparkles } from "lucide-react";
 
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -34,257 +17,195 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import type { RallyRecord } from "@/types/live";
 
-const data: RecentAction[] = [
-    {
-        id: 1,
-        code: "D01S+3A04R-#",
-        status: "saved",
-        score: "0:1",
-    },
-    {
-        id: 2,
-        code: "O06S+6C12R+3D13P-#",
-        status: "saved",
-        score: "1:1",
-    },
-    {
-        id: 3,
-        code: "D02S-6C#",
-        status: "saved",
-        score: "1:2",
-    },
-    {
-        id: 4,
-        code: "O16S+5E23R+3F01P+2A45A-#",
-        status: "saved",
-        score: "2:2",
-    },
-];
-
-export type RecentAction = {
-    id: number
-    code: string
-    status: "pending" | "saved" | "failed" | "removed"
-    score?: string
-    // TODO: team, player, result, other (?)
-};
-
-export const columns: ColumnDef<RecentAction>[] = [
-    {
-        id: "select",
-        header: ({ table }) => (
-            <Checkbox 
-                checked={
-                    table.getIsAllPageRowsSelected() || 
-                    (table.getIsSomePageRowsSelected() && "indeterminate")
-                }
-                onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-                aria-label="Select all"
-            />
-        ),
-        cell: ({ row }) => (
-            <Checkbox 
-                checked={row.getIsSelected()}
-                onCheckedChange={(value) => row.toggleSelected(!!value)}
-                aria-label="Select row"
-            />
-        ),
-        enableSorting: false,
-        enableHiding: false,
-    },
-    {
-        accessorKey: "code",
-        header: "Code",
-        cell: ({ row }) => (
-            <div>{row.getValue("code")}</div>
-        ),
-    },
-    {
-        accessorKey: "score",
-        header: "Score",
-        cell: ({ row }) => (
-            <div>{row.getValue("score")}</div>
-        ),
-    },
-    {
-        accessorKey: "status",
-        header: "Status",
-        cell: ({ row }) => (
-            <div className="capitalize">{row.getValue("status")}</div>
-        ),
-    },
-    {
-    id: "actions",
-    enableHiding: false,
+// Upewnij się, że RallyRecord w types/live.ts ma pole `set_number?: number`
+export const columns: ColumnDef<RallyRecord>[] = [
+  {
+    accessorKey: "rally_number_in_set",
+    header: "No.",
+    cell: ({ row }) => (
+      <div className="font-mono text-muted-foreground">#{row.getValue("rally_number_in_set")}</div>
+    ),
+  },
+  {
+    id: "score",
+    header: "Score",
     cell: ({ row }) => {
-      const action = row.original
+      const r = row.original;
+      return (
+        <div className="font-bold tabular-nums">
+          {r.home_score}:{r.away_score}
+        </div>
+      );
+    },
+  },
+  {
+    accessorKey: "raw_rally_code",
+    header: "Code",
+    cell: ({ row }) => (
+      <Badge variant="outline" className="font-mono text-base px-2 py-1 uppercase">
+        {row.getValue("raw_rally_code")}
+      </Badge>
+    ),
+  },
+  {
+    id: "actions",
+    cell: ({ row, table }) => {
+      const rally = row.original;
 
       return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
-              <MoreHorizontal />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(action.code)}
-            >
-              Copy code
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>View customer</DropdownMenuItem>
-            <DropdownMenuItem>View payment details</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )
+        <div className="flex items-center justify-end gap-1">
+          {/* EDIT */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground"
+            disabled={false}
+            onClick={() => {
+              toast.info("Edit functionality coming soon!");
+            }}
+            title="Edit action (Coming soon)"
+          >
+            <PenLine className="h-4 w-4" />
+          </Button>
+
+          {/* AI EXPLAIN */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground"
+            disabled={false}
+            onClick={() => {
+              toast.info("AI Explain functionality coming soon!");
+            }}
+            title="Explain with AI (Coming soon)"
+          >
+            <Sparkles className="h-4 w-4" />
+          </Button>
+
+          {/* COPY */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              navigator.clipboard.writeText(rally.raw_rally_code);
+              toast.success("Copied to clipboard");
+            }}
+            title="Copy code"
+          >
+            <Copy className="h-4 w-4" />
+          </Button>
+        </div>
+      );
     },
   },
 ];
 
-export function RecentCodesTable() {
-    const [sorting, setSorting] = React.useState<SortingState>([]);
-    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-        []
-    );
-    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
-    const [rowSelection, setRowSelection] = React.useState({});
+interface RecentCodesTableProps {
+  rallies: RallyRecord[];
+  currentSetNumber: number;
+  onUndo: () => void;
+}
 
-    const table = useReactTable({
-        data,
-        columns,
-        onSortingChange: setSorting,
-        onColumnFiltersChange: setColumnFilters,
-        getCoreRowModel: getCoreRowModel(),
-        getPaginationRowModel: getPaginationRowModel(),
-        getSortedRowModel: getSortedRowModel(),
-        getFilteredRowModel: getFilteredRowModel(),
-        onColumnVisibilityChange: setColumnVisibility,
-        onRowSelectionChange: setRowSelection,
-        state: {
-            sorting,
-            columnFilters,
-            columnVisibility,
-            rowSelection,
-        },
-    });
+export function RecentCodesTable({ rallies, currentSetNumber, onUndo }: RecentCodesTableProps) {
+  const [selectedSet, setSelectedSet] = React.useState<number>(currentSetNumber);
 
-    return (
-        <div className="p-4 mt-12 ml-12 space-y-4 bg-muted rounded-md border-none">
-        <div className="flex items-center">
-            <Input
-            placeholder="Filter actions..."
-            value={(table.getColumn("code")?.getFilterValue() as string) ?? ""}
-            onChange={(event) =>
-                table.getColumn("code")?.setFilterValue(event.target.value)
-            }
-            className="max-w-sm"
-            />
-            <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="ml-auto">
-                Columns <ChevronDown />
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                {table
-                .getAllColumns()
-                .filter((column) => column.getCanHide())
-                .map((column) => {
-                    return (
-                    <DropdownMenuCheckboxItem
-                        key={column.id}
-                        className="capitalize"
-                        checked={column.getIsVisible()}
-                        onCheckedChange={(value) =>
-                        column.toggleVisibility(!!value)
-                        }
-                    >
-                        {column.id}
-                    </DropdownMenuCheckboxItem>
-                    )
-                })}
-            </DropdownMenuContent>
-            </DropdownMenu>
+  React.useEffect(() => {
+    setSelectedSet(currentSetNumber);
+  }, [currentSetNumber]);
+
+  // Optymalizacja: Zabezpieczamy listę dostępnych setów
+  const availableSets = React.useMemo(() => {
+    return Array.from(
+      new Set([...rallies.map(r => r.set_number || 1), currentSetNumber])
+    ).sort((a, b) => a - b);
+  }, [rallies, currentSetNumber]);
+
+  // Optymalizacja: Zabezpieczamy dane dla tabeli (nie generujemy nowej tablicy co render)
+  const filteredRallies = React.useMemo(() => {
+    return rallies.filter(r => (r.set_number || 1) === selectedSet);
+  }, [rallies, selectedSet]);
+
+  const table = useReactTable({
+    data: filteredRallies,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
+  return (
+    <div className="space-y-3">
+      {/* Pasek narzędzi / Filtrowanie */}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">
+          Showing {filteredRallies.length} actions...
         </div>
-        <div className="rounded-md border">
-            <Table>
-            <TableHeader>
-                {table.getHeaderGroups().map((headerGroup) => (
+        <div className="flex items-center gap-2">
+          <label htmlFor="set-filter" className="text-sm font-medium">Filter by Set:</label>
+          <select
+            id="set-filter"
+            value={selectedSet}
+            onChange={(e) => setSelectedSet(Number(e.target.value))}
+            className="h-8 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            {availableSets.map((setNum) => (
+              <option key={setNum} value={setNum}>
+                Set {setNum}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Tabela z przewijaniem */}
+      <div className="rounded-md border bg-card overflow-hidden">
+        <div className="max-h-80 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
+          <Table>
+            <TableHeader className="sticky top-0 bg-card z-10 shadow-sm">
+              {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => {
-                    return (
-                        <TableHead key={header.id}>
-                        {header.isPlaceholder
-                            ? null
-                            : flexRender(
-                                header.column.columnDef.header,
-                                header.getContext()
-                            )}
-                        </TableHead>
-                    )
-                    })}
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
+                  ))}
                 </TableRow>
-                ))}
+              ))}
             </TableHeader>
             <TableBody>
-                {table.getRowModel().rows?.length ? (
+              {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row) => (
-                    <TableRow
+                  <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() && "selected"}
-                    >
+                  >
                     {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
-                        {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                        )}
-                        </TableCell>
+                      <TableCell key={cell.id} className="py-2">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
                     ))}
-                    </TableRow>
+                  </TableRow>
                 ))
-                ) : (
+              ) : (
                 <TableRow>
-                    <TableCell
-                    colSpan={columns.length}
-                    className="h-24 text-center"
-                    >
-                    No results.
-                    </TableCell>
+                  <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
+                    No actions in this set yet.
+                  </TableCell>
                 </TableRow>
-                )}
+              )}
             </TableBody>
-            </Table>
+          </Table>
         </div>
-        <div className="flex items-center justify-end space-x-2 py-4">
-            <div className="text-muted-foreground flex-1 text-sm">
-            {table.getFilteredSelectedRowModel().rows.length} of{" "}
-            {table.getFilteredRowModel().rows.length} row(s) selected.
-            </div>
-            <div className="space-x-2">
-            <Button
-                variant="outline"
-                size="sm"
-                onClick={() => table.previousPage()}
-                disabled={!table.getCanPreviousPage()}
-            >
-                Previous
-            </Button>
-            <Button
-                variant="outline"
-                size="sm"
-                onClick={() => table.nextPage()}
-                disabled={!table.getCanNextPage()}
-            >
-                Next
-            </Button>
-            </div>
-        </div>
-        </div>
-    );
+      </div>
+    </div>
+  );
 }
