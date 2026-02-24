@@ -381,7 +381,7 @@ export default function StaffTeamHistoryTableClient() {
       <div className="rounded-md border bg-card overflow-x-auto">
         <Table className="min-w-150">
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted">
               <TableHead>Staff Member</TableHead>
               <TableHead>Team</TableHead>
               <TableHead>Season</TableHead>

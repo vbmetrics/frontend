@@ -8,6 +8,7 @@ export interface PastSet {
 
 export interface Rotation {
   order: string[]; // Tablica UUID
+  on_court?: string[];
   libero_id: string | null;
 }
 

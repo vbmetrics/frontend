@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 const FormSchema = z.object({
-  code: z.string().min(2, { message: "Code too short." }).max(160),
+  code: z.string().min(2, { message: "Code too short." }).max(512, { message: "Code too long." }),
 });
 
 async function apiCall(url: string, method: string, body?: any) {
@@ -39,11 +39,13 @@ async function apiCall(url: string, method: string, body?: any) {
 export function CodeInput({ 
   matchId, 
   onUpdated,
-  canUndo = true // Nowy prop informujący czy jest co cofać
+  canUndo = true,
+  isMatchFinished = false
 }: { 
   matchId: string; 
   onUpdated?: () => void;
   canUndo?: boolean;
+  isMatchFinished?: boolean;
 }) {
   const [isUndoing, setIsUndoing] = React.useState(false);
 
@@ -104,12 +106,13 @@ export function CodeInput({
                 <div className="relative">
                     <Input
                       {...field}
-                      placeholder="ENTER CODE (e.g. H15S#)"
+                      placeholder={isMatchFinished ? "MATCH FINISHED" : "ENTER CODE (e.g. H15S#)"}
                       className={cn(
                         "h-14 text-xl font-mono tracking-wider uppercase shadow-sm border-2 focus-visible:ring-primary",
-                        form.formState.errors.code && "border-destructive focus-visible:ring-destructive"
+                        form.formState.errors.code && "border-destructive focus-visible:ring-destructive",
+                        isMatchFinished && "bg-muted text-muted-foreground opacity-50 cursor-not-allowed"
                       )}
-                      disabled={isSubmitting || isUndoing}
+                      disabled={isSubmitting || isUndoing || isMatchFinished} // Blokujemy Input
                       autoComplete="off"
                     />
                 </div>
@@ -121,12 +124,12 @@ export function CodeInput({
         
         {/* Grupa przycisków */}
         <div className="flex gap-2">
-          {/* Przycisk UNDO */}
+          {/* Przycisk UNDO (Zostaje ODBLOKOWANY, nawet gdy isMatchFinished, by móc cofnąć mecz) */}
           <Button 
             type="button" 
             variant="outline"
             size="lg" 
-            disabled={isSubmitting || isUndoing || !canUndo} 
+            disabled={isSubmitting || isUndoing || !canUndo} // Tu celowo NIE ma isMatchFinished!
             className="h-14 px-4 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
             onClick={handleUndo}
             title="Undo last action"
@@ -134,11 +137,11 @@ export function CodeInput({
             {isUndoing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Undo2 className="h-5 w-5" />}
           </Button>
 
-          {/* Przycisk SEND */}
+          {/* Przycisk SEND (ZABLOKOWANY po meczu) */}
           <Button 
             type="submit" 
             size="lg" 
-            disabled={isSubmitting || isUndoing || !form.watch("code")} 
+            disabled={isSubmitting || isUndoing || !form.watch("code") || isMatchFinished} // Blokujemy Send
             className="h-14 px-8"
           >
             {isSubmitting && !isUndoing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}

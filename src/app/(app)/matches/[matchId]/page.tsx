@@ -1,4 +1,10 @@
-import { notFound } from "next/navigation";
+"use client";
+
+import * as React from "react";
+import useSWR from "swr";
+import { useParams } from "next/navigation";
+import { Loader2, CalendarDays, MapPin, Trophy, Users, Download, FileText, Image as ImageIcon, FileCode2 } from "lucide-react";
+
 import {
   Card,
   CardContent,
@@ -17,59 +23,40 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Progress } from "@/components/ui/progress";
-import { CalendarDays, MapPin, Trophy, Users } from "lucide-react";
+import { PageHeader } from "@/components/app/PageHeader";
+import { Button } from "@/components/ui/button";
 
-// --- MOCK DATA (W przyszłości z API na podstawie matchId) ---
-
-const MATCH_DETAILS = {
-  id: "m-1024",
-  date: "Feb 14, 2025",
-  time: "17:30",
-  location: "Azoty Arena, Kędzierzyn-Koźle",
-  attendance: 3200,
-  duration: "1h 54m",
-  home: {
-    name: "ZAKSA Kędzierzyn-Koźle",
-    code: "ZAK",
-    sets: 3,
-    score: 94, // suma małych punktów
-    stats: { attack: 54, block: 12, ace: 6, reception: 48, errors: 22 },
-  },
-  away: {
-    name: "Jastrzębski Węgiel",
-    code: "JAS",
-    sets: 1,
-    score: 87,
-    stats: { attack: 45, block: 8, ace: 4, reception: 52, errors: 28 },
-  },
-  sets: [
-    { num: 1, home: 25, away: 21 },
-    { num: 2, home: 25, away: 23 },
-    { num: 3, home: 19, away: 25 },
-    { num: 4, home: 25, away: 18 },
-  ],
+// --- FETCHER ---
+const fetcher = async (url: string) => {
+  const r = await fetch(url, { cache: "no-store", credentials: "include" });
+  if (!r.ok) throw new Error("Failed to fetch");
+  return await r.json();
 };
 
-const BOX_SCORE_HOME = [
-  { no: 5, name: "Kaczmarek L.", pos: "OP", pts: 22, atk: "18/35", eff: "42%", blk: 3, ace: 1 },
-  { no: 11, name: "Śliwka A.", pos: "OH", pts: 14, atk: "11/24", eff: "38%", blk: 2, ace: 1 },
-  { no: 15, name: "Smith D.", pos: "MB", pts: 9, atk: "6/9", eff: "66%", blk: 3, ace: 0 },
-  { no: 99, name: "Bednorz B.", pos: "OH", pts: 18, atk: "15/28", eff: "46%", blk: 1, ace: 2 },
-  // ... reszta składu
-];
+// --- HELPERS ---
+function getInitials(name: string) {
+  if (!name || name === "?") return "?";
+  const parts = name.trim().split(" ");
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  return name.substring(0, 2).toUpperCase();
+}
 
-const BOX_SCORE_AWAY = [
-  { no: 4, name: "Toniutti B.", pos: "S", pts: 1, atk: "0/1", eff: "0%", blk: 1, ace: 0 },
-  { no: 6, name: "Fornal T.", pos: "OH", pts: 16, atk: "13/30", eff: "33%", blk: 1, ace: 2 },
-  { no: 21, name: "Boyer S.", pos: "OP", pts: 19, atk: "17/40", eff: "35%", blk: 1, ace: 1 },
-  { no: 13, name: "Gladyr Y.", pos: "MB", pts: 7, atk: "5/8", eff: "50%", blk: 2, ace: 0 },
-  // ... reszta składu
-];
+function formatPosition(pos: string | null) {
+  if (!pos) return "-";
+  return pos.replace(/_/g, " ").toUpperCase();
+}
 
-// --- COMPONENTS ---
+// Funkcja do szukania ogólnego lidera
+function getLeader(boxScore: any[], metric: string, minThreshold: number = 1) {
+  if (!boxScore || boxScore.length === 0) return null;
+  const sorted = [...boxScore].sort((a, b) => b[metric] - a[metric]);
+  const leader = sorted[0];
+  if (leader && leader[metric] >= minThreshold) {
+    return leader;
+  }
+  return null;
+}
 
-// Komponent paska porównania (Team A vs Team B)
 function StatComparisonRow({
   label,
   homeVal,
@@ -90,145 +77,321 @@ function StatComparisonRow({
     <div className="space-y-1 py-2">
       <div className="flex justify-between text-sm font-medium">
         <span className={winner === "home" ? "text-primary font-bold" : "text-muted-foreground"}>
-          {homeVal}
-          {unit}
+          {homeVal}{unit}
         </span>
         <span className="text-muted-foreground text-xs uppercase tracking-wider">{label}</span>
         <span className={winner === "away" ? "text-primary font-bold" : "text-muted-foreground"}>
-          {awayVal}
-          {unit}
+          {awayVal}{unit}
         </span>
       </div>
       <div className="flex h-2 w-full overflow-hidden rounded-full bg-secondary">
-        <div className="h-full bg-blue-600" style={{ width: `${homePercent}%` }} />
-        <div className="h-full bg-orange-500" style={{ width: `${awayPercent}%` }} />
+        <div className="h-full bg-blue-600 transition-all" style={{ width: `${homePercent}%` }} />
+        <div className="h-full bg-orange-500 transition-all" style={{ width: `${awayPercent}%` }} />
       </div>
     </div>
   );
 }
 
-// Tabela zawodników
-function BoxScoreTable({ data }: { data: typeof BOX_SCORE_HOME }) {
+function BoxScoreTable({ data }: { data: any[] }) {
+  if (!data || data.length === 0) return <div className="p-4 text-center text-muted-foreground">No data available</div>;
+
   return (
-    <div className="rounded-md border">
-      <Table>
+    <div className="rounded-md border overflow-x-auto">
+      <Table className="min-w-150">
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[50px]">#</TableHead>
+            <TableHead className="w-12 text-center">#</TableHead>
             <TableHead>Player</TableHead>
             <TableHead className="text-center">Pos</TableHead>
-            <TableHead className="text-right font-bold">Pts</TableHead>
+            <TableHead className="text-right font-bold text-primary">Pts</TableHead>
             <TableHead className="text-right">Atk (K/A)</TableHead>
             <TableHead className="text-right">Eff%</TableHead>
             <TableHead className="text-right">Blk</TableHead>
             <TableHead className="text-right">Ace</TableHead>
+            <TableHead className="text-right text-muted-foreground text-xs">Rec% (Perf)</TableHead>
+            <TableHead className="text-right text-muted-foreground text-xs">Digs</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {data.map((p) => (
-            <TableRow key={p.no}>
-              <TableCell className="font-medium text-muted-foreground">{p.no}</TableCell>
-              <TableCell className="font-medium">{p.name}</TableCell>
-              <TableCell className="text-center text-xs text-muted-foreground">{p.pos}</TableCell>
-              <TableCell className="text-right font-bold">{p.pts}</TableCell>
-              <TableCell className="text-right text-muted-foreground">{p.atk}</TableCell>
-              <TableCell
-                className={`text-right ${
-                  parseInt(p.eff) > 40 ? "text-green-600 dark:text-green-500 font-medium" : ""
-                }`}
-              >
-                {p.eff}
-              </TableCell>
-              <TableCell className="text-right">{p.blk}</TableCell>
-              <TableCell className="text-right">{p.ace}</TableCell>
-            </TableRow>
-          ))}
+             <TableRow key={p.no}>
+               <TableCell className="font-medium text-muted-foreground text-center">{p.no}</TableCell>
+               <TableCell className="font-bold whitespace-nowrap">{p.name}</TableCell>
+               <TableCell className="text-center">
+                 <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-5 font-medium text-muted-foreground whitespace-nowrap bg-muted/20">
+                   {p.pos}
+                 </Badge>
+               </TableCell>
+               <TableCell className="text-right font-bold text-primary">{p.pts}</TableCell>
+               <TableCell className="text-right text-muted-foreground tabular-nums">{p.atk}</TableCell>
+               <TableCell
+                 className={`text-right tabular-nums ${
+                   p.eff !== "-" && parseFloat(p.eff) > 40 ? "text-green-600 dark:text-green-500 font-bold" : ""
+                 }`}
+               >
+                 {p.eff}
+               </TableCell>
+               <TableCell className="text-right tabular-nums">{p.blk}</TableCell>
+               <TableCell className="text-right tabular-nums">{p.ace}</TableCell>
+               <TableCell className="text-right text-muted-foreground tabular-nums text-xs">{p.rec}</TableCell>
+               <TableCell className="text-right text-muted-foreground tabular-nums text-xs">{p.dig}</TableCell>
+             </TableRow>
+           ))}
         </TableBody>
       </Table>
     </div>
   );
 }
 
-// --- MAIN PAGE ---
+// Komponent dla pojedynczego lidera z wbudowanym kolorem drużyny
+function LeaderRow({ leader, title, valueStr }: { leader: any; title: string; valueStr: string }) {
+  if (!leader) return null;
 
-interface PageProps {
-  params: Promise<{ matchId: string }>;
-}
+  const bgColors = {
+    blue: "bg-blue-100 dark:bg-blue-900/40 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400",
+    orange: "bg-orange-100 dark:bg-orange-900/40 border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400",
+  };
+  const badgeColors = {
+    blue: "bg-blue-600 hover:bg-blue-700 text-white",
+    orange: "bg-orange-500 hover:bg-orange-600 text-white",
+  };
 
-export default async function MatchDetailsPage({ params }: PageProps) {
-  const { matchId } = await params;
-
-  // Tutaj normalnie byłby fetch(matchId)
-  if (matchId === "invalid") return notFound();
+  const colorClass = leader.colorClass as "blue" | "orange";
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="flex items-center gap-4 group">
+      <div className={`h-10 w-10 md:h-12 md:w-12 rounded-full border flex items-center justify-center font-bold transition-transform group-hover:scale-110 ${bgColors[colorClass]}`}>
+        {getInitials(leader.name)}
+      </div>
+      <div>
+        <p className="font-bold text-sm md:text-base leading-tight">{leader.name}</p>
+        <p className="text-xs md:text-sm text-muted-foreground">{leader.teamCode} • {valueStr}</p>
+      </div>
+      <Badge className={`ml-auto shadow-sm text-[9px] md:text-xs px-2 py-0 md:py-0.5 ${badgeColors[colorClass]}`}>{title}</Badge>
+    </div>
+  );
+}
+
+// --- MAIN PAGE ---
+
+export default function MatchDetailsPage() {
+  const params = useParams();
+  const matchId = params.matchId as string;
+
+  const { data: state, error: stateError } = useSWR(matchId ? `/api/backend/api/v1/match/${matchId}/state` : null, fetcher);
+  const { data: match, error: matchError } = useSWR(matchId ? `/api/backend/api/v1/match/${matchId}` : null, fetcher);
+  const { data: homeTeam } = useSWR(match ? `/api/backend/api/v1/team/${match.home_team_id}` : null, fetcher);
+  const { data: awayTeam } = useSWR(match ? `/api/backend/api/v1/team/${match.away_team_id}` : null, fetcher);
+  const { data: arena } = useSWR(match?.arena_id ? `/api/backend/api/v1/arena/${match.arena_id}` : null, fetcher);
+  const { data: report, error: reportError } = useSWR(matchId ? `/api/backend/api/v1/match/${matchId}/analytics/report` : null, fetcher);
+
+  // Dodatkowe SWR do pobrania składów drużyn
+  const homeHistoryUrl = match ? `/api/backend/api/v1/player-team-history/?team_id=${match.home_team_id}&season_id=${match.season_id}&limit=100` : null;
+  const awayHistoryUrl = match ? `/api/backend/api/v1/player-team-history/?team_id=${match.away_team_id}&season_id=${match.season_id}&limit=100` : null;
+  const { data: homePlayers } = useSWR<any[]>(homeHistoryUrl, fetcher);
+  const { data: awayPlayers } = useSWR<any[]>(awayHistoryUrl, fetcher);
+
+  if (stateError || matchError || reportError) {
+    return <div className="p-10 text-center text-red-500">Error loading match report.</div>;
+  }
+
+  if (!state || !match || !homeTeam || !awayTeam || !report || !homePlayers || !awayPlayers) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // --- OBLICZANIE WYNIKÓW SETÓW ---
+  const pastSets = state.past_sets || [];
+  let homeTotalPoints = pastSets.reduce((acc: number, set: any) => acc + set.home_score, 0);
+  let awayTotalPoints = pastSets.reduce((acc: number, set: any) => acc + set.away_score, 0);
+  
+  const setsToDisplay = pastSets.map((ps: any) => ({
+    num: ps.set_number,
+    home: ps.home_score,
+    away: ps.away_score,
+  }));
+
+  if (state.home_points > 0 || state.away_points > 0) {
+     setsToDisplay.push({
+       num: state.set_number,
+       home: state.home_points,
+       away: state.away_points
+     });
+     homeTotalPoints += state.home_points;
+     awayTotalPoints += state.away_points;
+  }
+
+  const homeCode = homeTeam.name.substring(0, 3).toUpperCase();
+  const awayCode = awayTeam.name.substring(0, 3).toUpperCase();
+
+  // --- MAPOWANIE ROSTERU DO BOX SCORE ---
+  // Łączymy bazę graczy (roster) ze statystykami z raportu.
+  // Dzięki temu w tabeli wylądują też zawodnicy bez ani jednej akcji (z kreskami "-").
+  const mapBoxScoreWithRoster = (roster: any[], teamBoxScore: any[], teamCode: string, colorClass: "blue" | "orange") => {
+    return roster.map((playerEntry) => {
+      const pid = playerEntry.player_id;
+      // Szukamy, czy zawodnik z rosteru zagrał cokolwiek w meczu
+      const p = teamBoxScore.find(x => x.player_id === pid);
+      
+      const firstName = playerEntry.player?.first_name || playerEntry.first_name || "";
+      const lastName = playerEntry.player?.last_name || playerEntry.last_name || "Unknown";
+      const fullName = firstName ? `${firstName[0]}. ${lastName}` : lastName;
+      const position = formatPosition(playerEntry.player?.playing_position || playerEntry.playing_position);
+
+      if (p) {
+         // Zawodnik GRAŁ
+         return {
+           no: p.jersey_number,
+           name: p.name || fullName,
+           pos: position,
+           pts: p.points,
+           atk: `${p.attack_kills}/${p.attack_attempts}`,
+           eff: p.attack_attempts > 0 ? `${p.attack_efficiency}%` : "-",
+           blk: p.block_kills,
+           ace: p.serve_aces,
+           rec: p.reception_attempts > 0 ? `${p.reception_perf_pct}%` : "-",
+           dig: p.dig_success,
+           _rawPts: p.points,
+           _rawBlk: p.block_kills,
+           _rawAce: p.serve_aces,
+           _rawRecPct: p.reception_perf_pct,
+           _rawDigs: p.dig_success,
+           teamCode,
+           colorClass
+         };
+      } else {
+         // Zawodnik NIE GRAŁ (lub grał, ale bez żadnej statystycznej akcji)
+         return {
+           no: playerEntry.jersey_number,
+           name: fullName,
+           pos: position,
+           pts: "-", atk: "-", eff: "-", blk: "-", ace: "-", rec: "-", dig: "-",
+           _rawPts: 0, _rawBlk: 0, _rawAce: 0, _rawRecPct: 0, _rawDigs: 0,
+           teamCode,
+           colorClass
+         };
+      }
+    }).sort((a, b) => a.no - b.no); // Sortujemy po koszulce rosnąco
+  };
+
+  const boxScoreHome = mapBoxScoreWithRoster(homePlayers, report.home_box_score, homeCode, "blue");
+  const boxScoreAway = mapBoxScoreWithRoster(awayPlayers, report.away_box_score, awayCode, "orange");
+
+  // Łączymy obie tabele by móc znaleźć globalnych liderów meczu
+  const allBoxScores = [...boxScoreHome, ...boxScoreAway];
+
+  // Wyszukiwanie Globalnych Liderów całego meczu
+  const overallScorer = getLeader(allBoxScores, '_rawPts', 1);
+  const overallBlocker = getLeader(allBoxScores, '_rawBlk', 1);
+  const overallServer = getLeader(allBoxScores, '_rawAce', 1);
+  const overallReceiver = getLeader(allBoxScores, '_rawRecPct', 10); // Minimum 10%
+  const overallDefender = getLeader(allBoxScores, '_rawDigs', 1);
+
+  const MATCH_DETAILS = {
+    id: match.id,
+    date: match.date ? new Date(match.date).toLocaleDateString() : "Unknown Date",
+    time: match.time || "TBD",
+    location: arena ? `${arena.name}, ${arena.country_code}` : "Unknown Venue",
+    home: {
+      name: homeTeam.name,
+      code: homeCode,
+      sets: state.home_sets,
+      score: homeTotalPoints,
+      stats: { 
+        attack: report.home_team_stats.attack_eff, 
+        block: report.home_team_stats.kill_blocks, 
+        ace: report.home_team_stats.aces, 
+        reception: report.home_team_stats.reception_pos, 
+        errors: report.home_team_stats.total_errors 
+      },
+    },
+    away: {
+      name: awayTeam.name,
+      code: awayCode,
+      sets: state.away_sets,
+      score: awayTotalPoints,
+      stats: { 
+        attack: report.away_team_stats.attack_eff, 
+        block: report.away_team_stats.kill_blocks, 
+        ace: report.away_team_stats.aces, 
+        reception: report.away_team_stats.reception_pos, 
+        errors: report.away_team_stats.total_errors 
+      },
+    },
+    sets: setsToDisplay,
+  };
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Match Report"
+        description="Detailed statistics and information about the match."
+        breadcrumbs={[{ label: "Matches", href: "/matches" }, { label: "Match" }]}
+      />
       {/* 1. MATCH HEADER */}
-      <Card className="overflow-hidden border-none shadow-md bg-gradient-to-br from-card to-muted/20">
-        <CardContent className="p-6 md:p-10">
-          {/* Meta Info */}
-          <div className="flex flex-col md:flex-row items-center justify-between text-sm text-muted-foreground mb-8 gap-4">
-            <div className="flex items-center gap-2">
-              <CalendarDays className="h-4 w-4" />
-              <span>
-                {MATCH_DETAILS.date} • {MATCH_DETAILS.time}
-              </span>
+      <Card className="overflow-hidden py-6 border-2 shadow-sm bg-linear-to-br from-card to-muted/30">
+        <CardContent className="px-4">
+          
+          <div className="flex flex-wrap items-center justify-center md:justify-between text-xs md:text-sm text-muted-foreground mb-8 gap-4">
+            <div className="flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-full border shadow-sm">
+              <CalendarDays className="h-4 w-4 text-primary" />
+              <span className="font-medium">{MATCH_DETAILS.date}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
-              <span>{MATCH_DETAILS.location}</span>
+            <div className="flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-full border shadow-sm">
+              <MapPin className="h-4 w-4 text-primary" />
+              <span className="font-medium">{MATCH_DETAILS.location}</span>
             </div>
-            <Badge variant="outline" className="text-xs">
-              {MATCH_DETAILS.duration}
-            </Badge>
           </div>
 
-          {/* Scoreboard */}
-          <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-            {/* Home Team */}
-            <div className="text-center md:text-right flex-1">
-              <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-blue-600 dark:text-blue-400">
+          <div className="grid grid-cols-3 items-center gap-2 md:gap-8">
+            <div className="text-right flex flex-col items-end justify-center">
+              <h2 className="text-lg md:text-3xl lg:text-4xl font-black tracking-tight text-blue-600 dark:text-blue-400 leading-tight">
                 {MATCH_DETAILS.home.name}
               </h2>
-              <p className="text-muted-foreground font-medium text-lg mt-1">Home</p>
+              <p className="text-muted-foreground font-semibold text-xs md:text-lg mt-1 uppercase tracking-widest">Home</p>
             </div>
 
-            {/* The Score */}
-            <div className="flex flex-col items-center px-6 py-4 bg-background/50 rounded-xl border shadow-sm">
-              <div className="text-5xl md:text-6xl font-black tracking-tighter flex gap-4">
+            <div className="flex flex-col items-center justify-center px-2 py-4 md:px-6 md:py-6 bg-background/80 backdrop-blur-sm rounded-2xl border shadow-md">
+              <div className="text-4xl md:text-7xl font-black tracking-tighter flex items-center gap-2 md:gap-4 leading-none">
                 <span className={MATCH_DETAILS.home.sets > MATCH_DETAILS.away.sets ? "text-foreground" : "text-muted-foreground"}>
                   {MATCH_DETAILS.home.sets}
                 </span>
-                <span className="text-muted-foreground/30">:</span>
+                <span className="text-muted-foreground/30 mb-2 md:mb-4">:</span>
                 <span className={MATCH_DETAILS.away.sets > MATCH_DETAILS.home.sets ? "text-foreground" : "text-muted-foreground"}>
                   {MATCH_DETAILS.away.sets}
                 </span>
               </div>
-              {/* Set Scores */}
-              <div className="flex gap-3 mt-4 text-sm font-medium text-muted-foreground">
-                {MATCH_DETAILS.sets.map((set) => (
-                  <div key={set.num} className="flex flex-col items-center">
-                    <span className="text-[10px] uppercase opacity-50">S{set.num}</span>
-                    <span
-                      className={
-                        set.home > set.away
-                          ? "text-blue-600 dark:text-blue-400 font-bold"
-                          : "text-orange-500 font-bold"
-                      }
-                    >
-                      {set.home}-{set.away}
-                    </span>
-                  </div>
-                ))}
+              
+              <div className="flex flex-wrap justify-center gap-2 md:gap-4 mt-4 text-xs md:text-sm font-medium">
+                {MATCH_DETAILS.sets.length > 0 ? (
+                  MATCH_DETAILS.sets.map((set: any) => (
+                    <div key={set.num} className="flex flex-col items-center bg-muted/50 px-2 py-1 rounded">
+                      <span className="text-[9px] md:text-[10px] uppercase font-bold text-muted-foreground/70 mb-0.5">S{set.num}</span>
+                      <span
+                        className={
+                          set.home > set.away
+                            ? "text-blue-600 dark:text-blue-400 font-black tabular-nums"
+                            : "text-orange-500 font-black tabular-nums"
+                        }
+                      >
+                        {set.home}:{set.away}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <span className="text-muted-foreground text-xs uppercase">No sets played</span>
+                )}
               </div>
             </div>
 
-            {/* Away Team */}
-            <div className="text-center md:text-left flex-1">
-              <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-orange-500">
+            <div className="text-left flex flex-col items-start justify-center">
+              <h2 className="text-lg md:text-3xl lg:text-4xl font-black tracking-tight text-orange-500 leading-tight">
                 {MATCH_DETAILS.away.name}
               </h2>
-              <p className="text-muted-foreground font-medium text-lg mt-1">Away</p>
+              <p className="text-muted-foreground font-semibold text-xs md:text-lg mt-1 uppercase tracking-widest">Away</p>
             </div>
           </div>
         </CardContent>
@@ -236,129 +399,138 @@ export default async function MatchDetailsPage({ params }: PageProps) {
 
       {/* 2. TABS & CONTENT */}
       <Tabs defaultValue="overview" className="w-full">
-        <div className="flex items-center justify-center md:justify-start mb-4">
-          <TabsList>
+        <div className="flex items-center justify-center md:justify-start mb-6">
+          <TabsList className="grid w-full grid-cols-3 md:w-100">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="boxscore">Box Score</TabsTrigger>
-            <TabsTrigger value="playbyplay" disabled>Play-by-Play</TabsTrigger>
+            <TabsTrigger value="export">Export</TabsTrigger>
           </TabsList>
         </div>
 
-        {/* --- TAB: OVERVIEW --- */}
-        <TabsContent value="overview" className="space-y-4">
+        {/* OVERVIEW TAB */}
+        <TabsContent value="overview" className="space-y-4 outline-none">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
             
-            {/* Team Stats Comparison */}
-            <Card className="lg:col-span-4">
-              <CardHeader>
+            {/* STATS */}
+            <Card className="lg:col-span-4 shadow-sm">
+              <CardHeader className="pb-4">
                 <CardTitle>Team Comparison</CardTitle>
                 <CardDescription>
-                  <span className="text-blue-600 font-bold">Blue</span> (Home) vs{" "}
-                  <span className="text-orange-500 font-bold">Orange</span> (Away)
+                  <span className="text-blue-600 font-bold">Home</span> vs{" "}
+                  <span className="text-orange-500 font-bold">Away</span>
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <StatComparisonRow
-                  label="Attack Efficiency"
-                  homeVal={MATCH_DETAILS.home.stats.attack}
-                  awayVal={MATCH_DETAILS.away.stats.attack}
-                  unit="%"
-                />
-                <StatComparisonRow
-                  label="Kill Blocks"
-                  homeVal={MATCH_DETAILS.home.stats.block}
-                  awayVal={MATCH_DETAILS.away.stats.block}
-                />
-                <StatComparisonRow
-                  label="Service Aces"
-                  homeVal={MATCH_DETAILS.home.stats.ace}
-                  awayVal={MATCH_DETAILS.away.stats.ace}
-                />
-                <StatComparisonRow
-                  label="Reception Positive"
-                  homeVal={MATCH_DETAILS.home.stats.reception}
-                  awayVal={MATCH_DETAILS.away.stats.reception}
-                  unit="%"
-                />
-                <StatComparisonRow
-                  label="Total Errors"
-                  homeVal={MATCH_DETAILS.home.stats.errors}
-                  awayVal={MATCH_DETAILS.away.stats.errors}
-                />
+                <StatComparisonRow label="Attack Efficiency" homeVal={MATCH_DETAILS.home.stats.attack} awayVal={MATCH_DETAILS.away.stats.attack} unit="%" />
+                <StatComparisonRow label="Kill Blocks" homeVal={MATCH_DETAILS.home.stats.block} awayVal={MATCH_DETAILS.away.stats.block} />
+                <StatComparisonRow label="Service Aces" homeVal={MATCH_DETAILS.home.stats.ace} awayVal={MATCH_DETAILS.away.stats.ace} />
+                <StatComparisonRow label="Reception Positive" homeVal={MATCH_DETAILS.home.stats.reception} awayVal={MATCH_DETAILS.away.stats.reception} unit="%" />
+                <StatComparisonRow label="Total Errors" homeVal={MATCH_DETAILS.home.stats.errors} awayVal={MATCH_DETAILS.away.stats.errors} />
               </CardContent>
             </Card>
 
-            {/* MVP / Top Scorer Highlight */}
-            <Card className="lg:col-span-3">
-              <CardHeader>
+            {/* LEADERS - TYLKO OGÓLNI Z CAŁEGO MECZU */}
+            <Card className="lg:col-span-3 shadow-sm flex flex-col">
+              <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2">
                   <Trophy className="h-5 w-5 text-yellow-500" /> Match Leaders
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {/* Top Scorer Home */}
-                  <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-700 dark:text-blue-300 font-bold">
-                      LK
-                    </div>
-                    <div>
-                      <p className="font-medium">Łukasz Kaczmarek</p>
-                      <p className="text-sm text-muted-foreground">ZAKSA • 22 Points</p>
-                    </div>
-                    <Badge className="ml-auto bg-blue-600">Top Scorer</Badge>
-                  </div>
+              <CardContent className="flex-1">
+                <div className="space-y-5 flex flex-col justify-between h-full pb-2">
                   
+                  <LeaderRow leader={overallScorer} title="Top Scorer" valueStr={`${overallScorer?._rawPts} Pts`} />
+                  <Separator />
+                  
+                  <LeaderRow leader={overallBlocker} title="Top Blocker" valueStr={`${overallBlocker?._rawBlk} Blks`} />
                   <Separator />
 
-                  {/* Top Scorer Away */}
-                  <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-full bg-orange-100 dark:bg-orange-900 flex items-center justify-center text-orange-700 dark:text-orange-300 font-bold">
-                      SB
-                    </div>
-                    <div>
-                      <p className="font-medium">Stephen Boyer</p>
-                      <p className="text-sm text-muted-foreground">Jastrzębski • 19 Points</p>
-                    </div>
-                  </div>
+                  <LeaderRow leader={overallServer} title="Top Server" valueStr={`${overallServer?._rawAce} Aces`} />
+                  <Separator />
+
+                  <LeaderRow leader={overallReceiver} title="Top Receiver" valueStr={`${overallReceiver?._rawRecPct}% Perf`} />
+                  <Separator />
+                    
+                  <LeaderRow leader={overallDefender} title="Top Defender" valueStr={`${overallDefender?._rawDigs} Digs`} />
+
+                  {!overallScorer && !overallBlocker && !overallServer && (
+                     <div className="text-center text-muted-foreground text-sm py-8">Not enough data to determine leaders.</div>
+                  )}
+
                 </div>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
 
-        {/* --- TAB: BOX SCORE --- */}
-        <TabsContent value="boxscore" className="space-y-6">
-          <Card>
-            <CardHeader>
+        {/* BOX SCORE TAB */}
+        <TabsContent value="boxscore" className="space-y-6 outline-none">
+          <Card className="shadow-sm border-t-4 border-t-blue-600">
+            <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <CardTitle className="text-blue-600">{MATCH_DETAILS.home.name}</CardTitle>
+                  <CardTitle className="text-xl">{MATCH_DETAILS.home.name}</CardTitle>
                   <CardDescription>Player Statistics</CardDescription>
                 </div>
-                <Users className="h-5 w-5 text-muted-foreground" />
+                <Users className="h-5 w-5 text-blue-600/50" />
               </div>
             </CardHeader>
             <CardContent>
-              <BoxScoreTable data={BOX_SCORE_HOME} />
+              <BoxScoreTable data={boxScoreHome} />
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
+          <Card className="shadow-sm border-t-4 border-t-orange-500">
+            <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <CardTitle className="text-orange-500">{MATCH_DETAILS.away.name}</CardTitle>
+                  <CardTitle className="text-xl">{MATCH_DETAILS.away.name}</CardTitle>
                   <CardDescription>Player Statistics</CardDescription>
                 </div>
-                <Users className="h-5 w-5 text-muted-foreground" />
+                <Users className="h-5 w-5 text-orange-500/50" />
               </div>
             </CardHeader>
             <CardContent>
-              <BoxScoreTable data={BOX_SCORE_AWAY} />
+              <BoxScoreTable data={boxScoreAway} />
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* EXPORT TAB */}
+        <TabsContent value="export" className="outline-none">
+           <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Download className="h-5 w-5 text-muted-foreground" />
+                Export Match Data
+              </CardTitle>
+              <CardDescription>
+                Download the full match report in your preferred format. (Coming soon)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Button variant="outline" className="h-24 flex flex-col gap-2 bg-muted/30" disabled>
+                  <FileText className="h-8 w-8 text-red-500" />
+                  PDF Report
+                </Button>
+                <Button variant="outline" className="h-24 flex flex-col gap-2 bg-muted/30" disabled>
+                  <ImageIcon className="h-8 w-8 text-blue-500" />
+                  PNG Graphic
+                </Button>
+                <Button variant="outline" className="h-24 flex flex-col gap-2 bg-muted/30" disabled>
+                  <FileCode2 className="h-8 w-8 text-orange-500" />
+                  HTML File
+                </Button>
+                <Button variant="outline" className="h-24 flex flex-col gap-2 bg-muted/30" disabled>
+                  <FileText className="h-8 w-8 text-green-500" />
+                  Markdown
+                </Button>
+              </div>
+            </CardContent>
+           </Card>
+        </TabsContent>
+
       </Tabs>
     </div>
   );

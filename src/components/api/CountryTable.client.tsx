@@ -304,7 +304,7 @@ export default function CountryTableClient() {
       <div className="rounded-md border bg-card">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted">
               <TableHead className="w-25 text-center">Code</TableHead>
               <TableHead>Country Name</TableHead>
               <TableHead className="text-right">Coordinates (Lat, Lng)</TableHead>

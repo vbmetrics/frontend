@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { apiFetchServer } from "@/lib/api/server";
 import MatchSetupClient from "@/components/live/MatchSetup.client"; // <--- Zmiana
+import { PageHeader } from "@/components/app/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -16,13 +17,12 @@ export default async function SetupPage({ params }: { params: Promise<{ matchId:
   }
 
   return (
-    <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Match Setup</h1>
-        <p className="text-sm text-muted-foreground">
-          Define the starting lineups for Set 1.
-        </p>
-      </div>
+    <div className="w-full mx-auto p-4 md:p-6 space-y-6">
+      <PageHeader
+        title="Match Setup"
+        description="Configure the match settings before starting live mode."
+        breadcrumbs={[{ label: "Live Mode", href: "/live" }, { label: `Setup` }]}
+      />
 
       <MatchSetupClient match={match} />
     </div>

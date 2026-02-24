@@ -289,7 +289,7 @@ export default function ArenaTableClient() {
       <div className="rounded-md border bg-card">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted">
               <TableHead className="w-75">Arena Name</TableHead>
               <TableHead>Location</TableHead>
               <TableHead className="text-right">Capacity</TableHead>

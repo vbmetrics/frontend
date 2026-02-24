@@ -46,6 +46,19 @@ export default function MatchSetupClient({ match }: { match: any }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
+  const { data: homeTeam } = useSWR(
+    match ? `/api/backend/api/v1/team/${match.home_team_id}` : null,
+    fetcher
+  );
+  
+  const { data: awayTeam } = useSWR(
+    match ? `/api/backend/api/v1/team/${match.away_team_id}` : null,
+    fetcher
+  );
+
+  const homeTeamName = homeTeam?.name || "Home Team";
+  const awayTeamName = awayTeam?.name || "Away Team";
+
   // Stan formularza
   const [startingServer, setStartingServer] = React.useState<"home" | "away">("home");
   const [homeLineup, setHomeLineup] = React.useState<LineupSide>({
@@ -183,7 +196,7 @@ export default function MatchSetupClient({ match }: { match: any }) {
     <div className="space-y-6">
       {/* Starting Server Selection */}
       <Card>
-        <CardContent className="pt-6">
+        <CardContent>
           <Label className="text-base font-semibold mb-4 block">First Serve</Label>
           <RadioGroup value={startingServer} onValueChange={(v: any) => setStartingServer(v)} className="flex gap-6">
             <div className="flex items-center space-x-2">
@@ -199,8 +212,8 @@ export default function MatchSetupClient({ match }: { match: any }) {
       </Card>
 
       <div className="grid md:grid-cols-2 gap-6">
-        {renderTeamSetup("home", homeOptions, "Home Team Lineup")}
-        {renderTeamSetup("away", awayOptions, "Away Team Lineup")}
+        {renderTeamSetup("home", homeOptions, `${homeTeamName} Lineup`)}
+        {renderTeamSetup("away", awayOptions, `${awayTeamName} Lineup`)}
       </div>
 
       <div className="flex justify-end">

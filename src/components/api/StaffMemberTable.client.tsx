@@ -321,10 +321,10 @@ export default function StaffMemberTableClient() {
       <div className="rounded-md border bg-card">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted">
               <TableHead>Name</TableHead>
               <TableHead>Role</TableHead>
-              <TableHead className="text-center">Nat.</TableHead>
+              <TableHead className="text-center">Nationality</TableHead>
               <TableHead className="text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>

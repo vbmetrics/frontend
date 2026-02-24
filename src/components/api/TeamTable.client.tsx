@@ -375,7 +375,7 @@ export default function TeamTableClient() {
       <div className="rounded-md border bg-card">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted">
               <TableHead className="w-75">Team Name</TableHead>
               <TableHead>Type</TableHead>
               <TableHead className="text-center">Nat.</TableHead>

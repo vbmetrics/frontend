@@ -384,10 +384,10 @@ export default function PlayerTableClient() {
       <div className="rounded-md border bg-card">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted">
               <TableHead>Name</TableHead>
               <TableHead>Position</TableHead>
-              <TableHead className="text-center">Nat.</TableHead>
+              <TableHead className="text-center">Nationality</TableHead>
               <TableHead className="text-right">Height / Spike</TableHead>
               <TableHead className="text-center">Actions</TableHead>
             </TableRow>

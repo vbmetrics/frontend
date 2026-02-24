@@ -47,7 +47,10 @@ export const columns: ColumnDef<RallyRecord>[] = [
     accessorKey: "raw_rally_code",
     header: "Code",
     cell: ({ row }) => (
-      <Badge variant="outline" className="font-mono text-base px-2 py-1 uppercase">
+      <Badge 
+        variant="outline" 
+        className="font-mono text-base px-3 py-2 uppercase whitespace-normal h-auto text-left max-w-full sm:max-w-full leading-relaxed wrap-break-word"
+      >
         {row.getValue("raw_rally_code")}
       </Badge>
     ),
@@ -189,7 +192,7 @@ export function RecentCodesTable({ rallies, currentSetNumber, onUndo }: RecentCo
                     data-state={row.getIsSelected() && "selected"}
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className="py-2">
+                      <TableCell key={cell.id} className="py-2 text-wrap">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>
                     ))}

@@ -150,7 +150,7 @@ export function StartMatchForm() {
   };
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-6 rounded-lg border bg-card p-6 max-w-4xl">
+    <form onSubmit={onSubmit} className="grid gap-6 rounded-lg border bg-card p-6 w-full">
       <h2 className="text-xl font-semibold">Start a new match</h2>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -159,7 +159,7 @@ export function StartMatchForm() {
         <div className="space-y-2">
           <Label htmlFor="season_id">Season <span className="text-red-500">*</span></Label>
           <Select value={values.season_id} onValueChange={(v) => onChange("season_id", v)}>
-            <SelectTrigger id="season_id" className={errors.season_id ? "border-destructive" : ""}>
+            <SelectTrigger id="season_id" className={`w-full ${errors.season_id ? "border-destructive" : ""}`}>
               <SelectValue placeholder="Select season..." />
             </SelectTrigger>
             <SelectContent>
@@ -175,7 +175,7 @@ export function StartMatchForm() {
         <div className="space-y-2">
           <Label htmlFor="arena_id">Arena</Label>
           <Select value={values.arena_id} onValueChange={(v) => onChange("arena_id", v === "none" ? "" : v)}>
-            <SelectTrigger id="arena_id">
+            <SelectTrigger id="arena_id" className="w-full">
               <SelectValue placeholder="Select arena (optional)" />
             </SelectTrigger>
             <SelectContent>
@@ -192,7 +192,7 @@ export function StartMatchForm() {
         <div className="space-y-2">
           <Label htmlFor="home_team_id">Home team <span className="text-red-500">*</span></Label>
           <Select value={values.home_team_id} onValueChange={(v) => onChange("home_team_id", v)} disabled={!values.season_id || teamsLoading}>
-            <SelectTrigger id="home_team_id" className={errors.home_team_id ? "border-destructive" : ""}>
+            <SelectTrigger id="home_team_id" className={`w-full ${errors.home_team_id ? "border-destructive" : ""}`}>
               <SelectValue placeholder={teamsLoading ? "Loading teams..." : "Select home team"} />
             </SelectTrigger>
             <SelectContent>
@@ -208,7 +208,7 @@ export function StartMatchForm() {
         <div className="space-y-2">
           <Label htmlFor="away_team_id">Away team <span className="text-red-500">*</span></Label>
           <Select value={values.away_team_id} onValueChange={(v) => onChange("away_team_id", v)} disabled={!values.season_id || teamsLoading}>
-            <SelectTrigger id="away_team_id" className={errors.away_team_id ? "border-destructive" : ""}>
+            <SelectTrigger id="away_team_id" className={`w-full ${errors.away_team_id ? "border-destructive" : ""}`}>
               <SelectValue placeholder={teamsLoading ? "Loading teams..." : "Select away team"} />
             </SelectTrigger>
             <SelectContent>
@@ -250,7 +250,7 @@ export function StartMatchForm() {
         </div>
       </div>
 
-      <div className="flex justify-end pt-4 border-t">
+      <div className="flex justify-end pt-6 border-t">
         <Button type="submit" disabled={pending} className="gap-2">
           {pending && <Loader2 className="h-4 w-4 animate-spin" />}
           {pending ? "Creating..." : "Create & Setup Match"}

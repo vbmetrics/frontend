@@ -1,5 +1,3 @@
-// src/app/(app)/live/[matchId]/coding/page.tsx
-
 "use client";
 
 import * as React from "react";
@@ -21,7 +19,6 @@ const fetcher = async (url: string) => {
   return await r.json();
 };
 
-// Helper do pozycji (możesz przenieść do utils)
 function mapPosition(pos: string | null): string {
   if (!pos) return "?";
   if (pos.toLowerCase().includes("outside")) return "OH";
@@ -70,13 +67,11 @@ export default function CodingPage() {
   const { data: homePlayers } = useSWR<any[]>(homeHistoryUrl, fetcher);
   const { data: awayPlayers } = useSWR<any[]>(awayHistoryUrl, fetcher);
 
-  // Budowanie mapy graczy
   const playerMap = React.useMemo(() => {
     const map: PlayerMap = {};
     const process = (list: any[]) => {
       if (!list) return;
       list.forEach((p) => {
-        // Szukamy danych zagnieżdżonych (p.player.xxx) lub płaskich (p.xxx)
         const firstName = p.player?.first_name || p.first_name || "";
         const lastName = p.player?.last_name || p.last_name || "Player";
         const positionRaw = p.player?.playing_position || p.playing_position || "";
@@ -100,7 +95,7 @@ export default function CodingPage() {
     try {
       await fetch(`/api/backend/api/v1/match/${matchId}/rally/last`, { method: "DELETE", credentials: "include" });
       toast.success("Action undone!");
-      mutate(); // Odświeża SWR
+      mutate();
     } catch (e) {
       toast.error("Could not undo action");
     }
@@ -109,19 +104,23 @@ export default function CodingPage() {
   if (stateError) return <div className="p-10 text-center text-red-500">Error loading match.</div>;
   if (!state || !match) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
 
+  // Sprawdzamy, czy ktoś ugrał 3 sety (koniec meczu)
+  const isMatchFinished = state.home_sets === 3 || state.away_sets === 3;
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Live Mode"
-        description="Start a live mode session to save match data."
+        title={isMatchFinished ? "Match Finished" : "Live Mode"}
+        description={isMatchFinished ? "This match has concluded." : "Start a live mode session to save match data."}
         breadcrumbs={[{ label: "Live Mode", href: "/live" }, { label: "Match" }]}
       />
       
-      {/* SCOREBOARD (Wynik + Sety + Nazwy) */}
+      {/* SCOREBOARD */}
       <Scoreboard 
         state={state}
         homeTeamName={homeTeamName} 
         awayTeamName={awayTeamName} 
+        isMatchFinished={isMatchFinished} // Przekazujemy stan do Scoreboardu
       />
 
       {/* CODE INPUT */}
@@ -129,15 +128,15 @@ export default function CodingPage() {
         <CodeInput 
           matchId={matchId} 
           onUpdated={() => mutate()} 
-          // Sprawdzamy, czy w historii jest jakakolwiek akcja z BIEŻĄCYM numerem seta
           canUndo={
             state.last_rallies && 
             state.last_rallies.some(r => r.set_number === state.set_number)
           } 
+          isMatchFinished={isMatchFinished} // Przekazujemy stan do Inputu
         />
       </div>
 
-      {/* VISUAL COURT (Rotacje) */}
+      {/* VISUAL COURT */}
       <VisualCourt 
         homeRotation={state.rotation_home}
         awayRotation={state.rotation_away}

@@ -1,6 +1,7 @@
 // src/components/live/Scoreboard.tsx
 
 import * as React from "react";
+import Link from "next/link";
 import { Copy } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,9 +13,10 @@ interface ScoreboardProps {
   state: MatchState;
   homeTeamName: string;
   awayTeamName: string;
+  isMatchFinished?: boolean;
 }
 
-export function Scoreboard({ state, homeTeamName, awayTeamName }: ScoreboardProps) {
+export function Scoreboard({ state, homeTeamName, awayTeamName, isMatchFinished }: ScoreboardProps) {
   
   const copyMatchId = () => {
     navigator.clipboard.writeText(state.match_id);
@@ -22,12 +24,30 @@ export function Scoreboard({ state, homeTeamName, awayTeamName }: ScoreboardProp
   };
 
   return (
-    <Card className="border-2 overflow-hidden py-0 shadow-none">
-      {/* Header Paska z ID */}
+      <Card className="border-2 overflow-hidden py-0 shadow-none">
+      {/* Pasek Header z ID */}
       <div className="bg-muted/40 px-6 py-2 flex items-center justify-between border-b">
-        <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            LIVE MATCH
+        {/* NOWY BLOK Z LOGIKĄ FINISHED / REPORT */}
+        <div className="flex items-center gap-3">
+          {isMatchFinished ? (
+            <>
+              <div className="text-xs font-bold uppercase tracking-widest text-destructive">
+                 FINISHED
+              </div>
+              <Link href={`/matches/${state.match_id}`}>
+                <Badge variant="default" className="cursor-pointer font-bold tracking-wider text-[10px] px-4 py-1 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-all">
+                  REPORT ➔
+                </Badge>
+              </Link>
+            </>
+          ) : (
+            <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+               LIVE MATCH
+            </div>
+          )}
         </div>
+        {/* ID meczu i przycisk kopiowania */}
         <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
           <span>ID: {state.match_id}</span>
           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={copyMatchId}>

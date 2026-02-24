@@ -334,7 +334,7 @@ export default function SeasonTableClient() {
       <div className="rounded-md border bg-card">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted">
               <TableHead className="w-62.5">Season Name</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Time Frame</TableHead>

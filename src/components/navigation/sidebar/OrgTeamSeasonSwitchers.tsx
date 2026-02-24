@@ -25,8 +25,8 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { useSeasonStore } from "@/stores/useSeasonStore";
 import { SeasonReadDTO } from "@/types/season";
 
-import { useTeamStore } from "@/stores/useTeamStore"; // <--- NOWY STORE
-import { TeamReadDTO } from "@/types/team";          // <--- NOWY TYP
+import { useTeamStore } from "@/stores/useTeamStore";
+import { TeamReadDTO } from "@/types/team";
 
 // --- MOCK FOR ORG (Zostawiamy na później) ---
 const MOCK_ORGS = [

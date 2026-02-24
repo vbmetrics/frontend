@@ -16,11 +16,18 @@ import {
   History,
   Briefcase,
   ArrowRight,
+  Activity // <--- Dodana ikona
 } from "lucide-react";
 import { PageHeader } from "@/components/app/PageHeader";
 
-// Konfiguracja sekcji - łatwo dodać nowe w przyszłości
+// Konfiguracja sekcji
 const DATA_SECTIONS = [
+  {
+    title: "Matches",
+    href: "/data/matches",
+    icon: Activity,
+    description: "Manage match records, view results, and safely delete games.",
+  },
   {
     title: "Countries",
     href: "/data/countries",
@@ -80,7 +87,6 @@ export default function ManageDataPage() {
         breadcrumbs={[{ label: "Data" }]}
       />
 
-      {/* Grid z kartami */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {DATA_SECTIONS.map((item) => (
           <Link key={item.href} href={item.href} className="group block h-full">
